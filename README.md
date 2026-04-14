@@ -26,6 +26,12 @@ Proyek ini adalah hasil konversi dari aplikasi inventaris berbasis single-file P
 - Transaksi Peminjaman
 	- Proses pinjam
 	- Proses pengembalian
+- Barcode & Label Cetak
+	- Preview barcode aset (A4 Grid, Label 107, Label 103)
+	- Download PNG/JPEG, PDF, dan print langsung
+	- Kalibrasi posisi cetak (offset X/Y dan skala)
+	- Toggle border konten label ON/OFF
+	- Toggle border grid label ON/OFF
 
 ## Jalankan Proyek
 
@@ -70,33 +76,55 @@ start-server.bat test 8081
 | `/admin/users` | Data pengguna |
 | `/admin/loans` | Transaksi peminjaman |
 | `/admin/loans?format=label107` | Cetak label barcode T&J No.107 |
+| `/admin/loans?format=label103` | Cetak label barcode T&J No.103 |
+| `/admin/loans?format=a4&grid=ringkas` | Preview barcode A4 preset Ringkas |
 
-## Format Label Cetak — T&J No. 107
+## Format Label Cetak
 
-Halaman cetak barcode aset diakses via `/admin/loans?format=label107`.
+Menu barcode tersedia di route `/admin/loans` dengan opsi format `a4`, `label107`, dan `label103`.
 
-### Spesifikasi Kertas Label T&J No. 107
+### Label T&J No. 107 (Konfigurasi Aktif)
 
 | Properti | Nilai |
 |---|---|
 | Merek | Tom & Jerry (T&J) |
-| Nomor seri kertas | No. 107 |
-| Warna kertas | Kuning |
-| Ukuran kertas induk | A4 (210 mm × 297 mm) |
-| Ukuran satu label | 50 mm (lebar) × 18 mm (tinggi) |
-| Susunan grid | 3 kolom × 10 baris |
-| Label per halaman | 30 label |
-| Margin kiri & kanan | 30 mm |
-| Margin atas & bawah | 58.5 mm |
-| Jarak antar label | 0 mm (tanpa gap) |
-| Isi per pak | 10 lembar = 300 label |
+| Nomor seri | No. 107 |
+| Ukuran lembar | 21 x 16.5 cm |
+| Orientasi | Portrait |
+| Ukuran label | 64 x 32 mm |
+| Susunan grid | 3 kolom x 4 baris |
+| Label per lembar | 12 label |
+| Jarak antar label | 5 mm |
+| Area grid | 202 mm x 143 mm |
+| Padding lembar (T/R/B/L) | 11 mm / 4 mm / 11 mm / 4 mm |
+
+### Label T&J No. 103
+
+| Properti | Nilai |
+|---|---|
+| Merek | Tom & Jerry (T&J) |
+| Nomor seri | No. 103 |
+| Ukuran lembar | A4 (210 x 297 mm) |
+| Orientasi | Portrait |
+| Susunan grid | 3 kolom x 10 baris |
+| Label per lembar | 30 label |
+
+### Fitur Cetak Barcode
+
+- Download gambar format PNG/JPEG
+- Download PDF
+- Print langsung dari browser
+- Kalibrasi posisi cetak (horizontal, vertikal, skala)
+- Dropdown Border Konten Label (ON/OFF)
+- Dropdown Border Grid Label (ON/OFF)
 
 ### Isi Setiap Label
 
 - Kategori aset
-- Nama (Brand + Model)
-- Barcode batang (dari field `barcode`)
-- Status aset (warna-coded)
+- Nama aset (Brand + Model)
+- Barcode batang (CODE128)
+- Tanggal cetak
+- Nama departemen/unit
 
 ## Seed Default
 

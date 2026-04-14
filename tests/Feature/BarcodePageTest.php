@@ -68,7 +68,9 @@ class BarcodePageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Label T&J 107');
-        $response->assertSee('107 x 50 mm');
+        $response->assertSee('64 x 32 mm');
+        $response->assertSee('21 x 16.5 cm');
+        $response->assertSee('12 label');
         $response->assertSee($asset->brand . ' ' . $asset->model);
         $response->assertDontSee('Preset grid A4');
         $response->assertDontSee('Ringkas');

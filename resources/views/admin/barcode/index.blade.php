@@ -45,26 +45,58 @@
             'label107' => [
                 'button_label' => 'Label 107',
                 'label' => 'Label T&J 107',
-                'dimensions' => '107 x 50 mm',
-                'paper_width' => 107,
-                'paper_height' => 50,
-                'sheet_width' => '107mm',
-                'sheet_height' => '50mm',
-                'barcode_width' => 1.45,
-                'barcode_height' => 62,
-                'capture_scale' => 2.6,
+                'paper_brand' => 'Tom & Jerry (T&J)',
+                'paper_series' => 'No. 107',
+                'dimensions' => '64 x 32 mm',
+                'paper_label' => '21 x 16.5 cm',
+                'paper_width' => 210,
+                'paper_height' => 165,
+                'orientation' => 'Portrait',
+                'sheet_width' => '210mm',
+                'sheet_height' => '165mm',
+                'sheet_padding_top' => '11mm',
+                'sheet_padding_right' => '4mm',
+                'sheet_padding_bottom' => '11mm',
+                'sheet_padding_left' => '4mm',
+                'grid_columns' => 3,
+                'grid_rows' => 4,
+                'per_page' => 12,
+                'label_width' => '64mm',
+                'label_height' => '32mm',
+                'label_gap' => '5mm',
+                'grid_width' => '202mm',
+                'grid_height' => '143mm',
+                'barcode_width' => 1.15,
+                'barcode_height' => 30,
+                'capture_scale' => 2.5,
                 'file_suffix' => 'label-tj-107',
             ],
             'label103' => [
                 'button_label' => 'Label 103',
                 'label' => 'Label T&J 103',
+                'paper_brand' => 'Tom & Jerry (T&J)',
+                'paper_series' => 'No. 103',
                 'dimensions' => '103 x 50 mm',
-                'paper_width' => 103,
-                'paper_height' => 50,
-                'sheet_width' => '103mm',
-                'sheet_height' => '50mm',
-                'barcode_width' => 1.38,
-                'barcode_height' => 62,
+                'paper_label' => 'A4 (210 x 297 mm)',
+                'paper_width' => 210,
+                'paper_height' => 297,
+                'orientation' => 'Portrait',
+                'sheet_width' => '210mm',
+                'sheet_height' => '297mm',
+                'sheet_padding_top' => '58.5mm',
+                'sheet_padding_right' => '30mm',
+                'sheet_padding_bottom' => '58.5mm',
+                'sheet_padding_left' => '30mm',
+                'grid_columns' => 3,
+                'grid_rows' => 10,
+                'per_page' => 30,
+                'label_width' => '50mm',
+                'label_height' => '18mm',
+                'label_gap' => '0mm',
+                'grid_width' => '150mm',
+                'grid_height' => '180mm',
+                'barcode_width' => 1,
+                'barcode_height' => 26,
                 'capture_scale' => 2.6,
                 'file_suffix' => 'label-tj-103',
             ],
@@ -83,7 +115,7 @@
         $selectedLabelKey = array_key_exists($printFormat, $labelVariants) ? $printFormat : 'label107';
         $selectedLabel = $labelVariants[$selectedLabelKey];
         $a4Pages = $assets->chunk($selectedGrid['per_page']);
-        $labelChunks = $assets->chunk(30);
+        $labelChunks = $assets->chunk($selectedLabel['per_page']);
         $printDate = now()->locale('id')->translatedFormat('d F Y, H:i');
 
         $selectedAsset = $assets->first();
@@ -172,7 +204,43 @@
                             </div>
                         </div>
 
-                        <div class="d-grid gap-2">
+                        @if($printFormat !== 'a4')
+                            <div>
+                                <label class="barcode-settings-label">Border Konten Label</label>
+                                <div class="dropdown barcode-download-group w-100">
+                                    <button class="btn btn-outline-secondary dropdown-toggle w-100 d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="labelBorderToggleButton">
+                                        <span><i class="fa-solid fa-border-all me-2"></i><span id="labelBorderToggleText">Border ON</span></span>
+                                    </button>
+                                    <ul class="dropdown-menu w-100">
+                                        <li>
+                                            <button class="dropdown-item active" type="button" data-label-content-border="on">Border ON</button>
+                                        </li>
+                                        <li>
+                                            <button class="dropdown-item" type="button" data-label-content-border="off">Border OFF</button>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="barcode-settings-label">Border Grid Label</label>
+                                <div class="dropdown barcode-download-group w-100">
+                                    <button class="btn btn-outline-secondary dropdown-toggle w-100 d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="labelGridBorderToggleButton">
+                                        <span><i class="fa-solid fa-border-none me-2"></i><span id="labelGridBorderToggleText">Grid Border ON</span></span>
+                                    </button>
+                                    <ul class="dropdown-menu w-100">
+                                        <li>
+                                            <button class="dropdown-item active" type="button" data-label-grid-border="on">Grid Border ON</button>
+                                        </li>
+                                        <li>
+                                            <button class="dropdown-item" type="button" data-label-grid-border="off">Grid Border OFF</button>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        @endif
+
+                        <div class="barcode-action-buttons">
                             <button type="button" class="btn btn-outline-primary" id="downloadPdfButton">
                                 <i class="fa-solid fa-file-pdf me-2"></i>Download PDF
                             </button>
@@ -185,7 +253,7 @@
                             @if($printFormat === 'a4')
                                 {{ $selectedGrid['label'] }} menampilkan {{ $selectedGrid['per_page'] }} kartu per halaman dan mencetak semua aset yang tersedia.
                             @else
-                                {{ $selectedLabel['label'] }} ({{ $selectedLabel['dimensions'] }}) — Semua aset dicetak 30 label per halaman A4.
+                                {{ $selectedLabel['label'] }} ({{ $selectedLabel['dimensions'] }}) — {{ $selectedLabel['grid_columns'] }} kolom x {{ $selectedLabel['grid_rows'] }} baris, {{ $selectedLabel['per_page'] }} label per lembar {{ $selectedLabel['paper_label'] }}.
                             @endif
                         </div>
 
@@ -206,13 +274,16 @@
                                         <div class="accordion-body py-2 px-3">
                                             <table class="table table-sm table-borderless small mb-0">
                                                 <tbody>
-                                                    <tr><td class="text-muted ps-0 py-1">Merek</td><td class="fw-semibold">Tom &amp; Jerry (T&amp;J)</td></tr>
-                                                    <tr><td class="text-muted ps-0 py-1">Kertas induk</td><td class="fw-semibold">A4 (210×297 mm)</td></tr>
-                                                    <tr><td class="text-muted ps-0 py-1">Ukuran label</td><td class="fw-semibold">50 mm × 18 mm</td></tr>
-                                                    <tr><td class="text-muted ps-0 py-1">Susunan</td><td class="fw-semibold">3 kolom × 10 baris</td></tr>
-                                                    <tr><td class="text-muted ps-0 py-1">Label / hal</td><td class="fw-semibold">30 label</td></tr>
-                                                    <tr><td class="text-muted ps-0 py-1">Margin H/V</td><td class="fw-semibold">30 mm / 58.5 mm</td></tr>
-                                                    <tr><td class="text-muted ps-0 py-1">Isi per pak</td><td class="fw-semibold">10 lembar = 300 label</td></tr>
+                                                    <tr><td class="text-muted ps-0 py-1">Merek</td><td class="fw-semibold">{{ $selectedLabel['paper_brand'] }}</td></tr>
+                                                    <tr><td class="text-muted ps-0 py-1">Nomor seri</td><td class="fw-semibold">{{ $selectedLabel['paper_series'] }}</td></tr>
+                                                    <tr><td class="text-muted ps-0 py-1">Ukuran lembar</td><td class="fw-semibold">{{ $selectedLabel['paper_label'] }}</td></tr>
+                                                    <tr><td class="text-muted ps-0 py-1">Orientasi</td><td class="fw-semibold">{{ $selectedLabel['orientation'] }}</td></tr>
+                                                    <tr><td class="text-muted ps-0 py-1">Ukuran label</td><td class="fw-semibold">{{ $selectedLabel['dimensions'] }}</td></tr>
+                                                    <tr><td class="text-muted ps-0 py-1">Susunan</td><td class="fw-semibold">{{ $selectedLabel['grid_columns'] }} kolom × {{ $selectedLabel['grid_rows'] }} baris</td></tr>
+                                                    <tr><td class="text-muted ps-0 py-1">Jarak antar label</td><td class="fw-semibold">{{ str_replace('mm', ' mm', $selectedLabel['label_gap']) }}</td></tr>
+                                                    <tr><td class="text-muted ps-0 py-1">Area grid</td><td class="fw-semibold">{{ str_replace('mm', ' mm', $selectedLabel['grid_width']) }} × {{ str_replace('mm', ' mm', $selectedLabel['grid_height']) }}</td></tr>
+                                                    <tr><td class="text-muted ps-0 py-1">Padding lembar (T/R/B/L)</td><td class="fw-semibold">{{ str_replace('mm', ' mm', $selectedLabel['sheet_padding_top']) }} / {{ str_replace('mm', ' mm', $selectedLabel['sheet_padding_right']) }} / {{ str_replace('mm', ' mm', $selectedLabel['sheet_padding_bottom']) }} / {{ str_replace('mm', ' mm', $selectedLabel['sheet_padding_left']) }}</td></tr>
+                                                    <tr><td class="text-muted ps-0 py-1">Label / hal</td><td class="fw-semibold">{{ $selectedLabel['per_page'] }} label</td></tr>
                                                 </tbody>
                                             </table>
                                         </div>
@@ -355,21 +426,22 @@
                                         @endforeach
                                     </div>
                                 @else
-                                    {{-- Full 30-label-per-page grid for label formats --}}
+                                    {{-- Dynamic label grid per selected format --}}
                                     <div class="barcode-sheet-stack">
                                         @foreach($labelChunks as $lblPageIndex => $lblPageAssets)
                                             <div
-                                                class="barcode-sheet barcode-sheet--a4 barcode-label-sheet"
+                                                class="barcode-sheet barcode-label-sheet"
                                                 data-barcode-page
                                                 data-page-index="{{ $lblPageIndex }}"
                                                 data-page-total="{{ $labelChunks->count() }}"
+                                                style="--barcode-label-sheet-width: {{ $selectedLabel['sheet_width'] }}; --barcode-label-sheet-height: {{ $selectedLabel['sheet_height'] }}; --barcode-label-sheet-padding-top: {{ $selectedLabel['sheet_padding_top'] }}; --barcode-label-sheet-padding-right: {{ $selectedLabel['sheet_padding_right'] }}; --barcode-label-sheet-padding-bottom: {{ $selectedLabel['sheet_padding_bottom'] }}; --barcode-label-sheet-padding-left: {{ $selectedLabel['sheet_padding_left'] }}; --barcode-label-grid-columns: {{ $selectedLabel['grid_columns'] }}; --barcode-label-grid-rows: {{ $selectedLabel['grid_rows'] }}; --barcode-label-width: {{ $selectedLabel['label_width'] }}; --barcode-label-height: {{ $selectedLabel['label_height'] }}; --barcode-label-gap: {{ $selectedLabel['label_gap'] }}; --barcode-label-grid-width: {{ $selectedLabel['grid_width'] }}; --barcode-label-grid-height: {{ $selectedLabel['grid_height'] }};"
                                             >
                                                 <div class="barcode-sheet-topbar"></div>
                                                 <div class="barcode-sheet-header barcode-sheet-header--grid">
                                                     <div>
                                                         <div class="barcode-sheet-kicker">Inventory Barang</div>
                                                         <h2 class="barcode-sheet-title">{{ $selectedLabel['label'] }}</h2>
-                                                        <div class="barcode-sheet-subtitle">A4 · 3×10 · {{ $lblPageAssets->count() }} label pada halaman ini</div>
+                                                        <div class="barcode-sheet-subtitle">{{ $selectedLabel['paper_label'] }} · {{ $selectedLabel['grid_columns'] }}×{{ $selectedLabel['grid_rows'] }} · {{ $lblPageAssets->count() }} label pada halaman ini</div>
                                                     </div>
                                                     <div class="barcode-sheet-page-chip">
                                                         Hal {{ $lblPageIndex + 1 }}/{{ $labelChunks->count() }}
@@ -379,26 +451,28 @@
                                                 <div class="barcode-label-grid">
                                                     @foreach($lblPageAssets as $lblAsset)
                                                         @php $lblBarcode = (string)($lblAsset->barcode ?: $lblAsset->serial_number); @endphp
-                                                        <div class="barcode-label-cell">
-                                                            <div class="barcode-label-category">{{ $lblAsset->category }}</div>
-                                                            <div class="barcode-label-name">{{ $lblAsset->brand }} {{ $lblAsset->model }}</div>
-                                                            <div class="barcode-label-barcode">
-                                                                <svg
-                                                                    class="barcode-label-svg"
-                                                                    data-barcode-svg
-                                                                    data-barcode-value="{{ $lblBarcode }}"
-                                                                    data-barcode-width="1"
-                                                                    data-barcode-height="26"
-                                                                    role="img"
-                                                                    aria-label="Barcode {{ $lblBarcode }}"
-                                                                ></svg>
+                                                        <div class="barcode-label-cell {{ $selectedLabelKey === 'label107' ? 'barcode-label-cell--label107' : '' }}">
+                                                            <div class="barcode-label-content {{ $selectedLabelKey === 'label107' ? 'barcode-label-content--label107' : '' }}">
+                                                                <div class="barcode-label-category">{{ $lblAsset->category }}</div>
+                                                                <div class="barcode-label-name">{{ $lblAsset->brand }} {{ $lblAsset->model }}</div>
+                                                                <div class="barcode-label-barcode">
+                                                                    <svg
+                                                                        class="barcode-label-svg"
+                                                                        data-barcode-svg
+                                                                        data-barcode-value="{{ $lblBarcode }}"
+                                                                        data-barcode-width="{{ $selectedLabel['barcode_width'] }}"
+                                                                        data-barcode-height="{{ $selectedLabel['barcode_height'] }}"
+                                                                        role="img"
+                                                                        aria-label="Barcode {{ $lblBarcode }}"
+                                                                    ></svg>
+                                                                </div>
+                                                                <div class="barcode-label-date">Cetak: {{ $printDate }}</div>
+                                                                <div class="barcode-label-dept">Pengembangan Perangkat Lunak &amp; Gim</div>
                                                             </div>
-                                                            <div class="barcode-label-date">Cetak: {{ $printDate }}</div>
-                                                            <div class="barcode-label-dept">Pengembangan Perangkat Lunak &amp; Gim</div>
                                                         </div>
                                                     @endforeach
-                                                    @for($i = $lblPageAssets->count(); $i < 30; $i++)
-                                                        <div class="barcode-label-cell barcode-label-cell--empty"></div>
+                                                    @for($i = $lblPageAssets->count(); $i < $selectedLabel['per_page']; $i++)
+                                                        <div class="barcode-label-cell barcode-label-cell--empty {{ $selectedLabelKey === 'label107' ? 'barcode-label-cell--label107' : '' }}"></div>
                                                     @endfor
                                                 </div>
                                             </div>
@@ -441,6 +515,28 @@
 
         .barcode-download-group .dropdown-menu {
             min-width: 100%;
+        }
+
+        .barcode-action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .barcode-action-buttons > .btn {
+            flex: 1 1 50%;
+            width: 50%;
+        }
+
+        #barcodePageShell.barcode-content-border-off .barcode-label-content {
+            border: none !important;
+        }
+
+        #barcodePageShell.barcode-grid-border-off .barcode-label-grid {
+            border: none !important;
+        }
+
+        #barcodePageShell.barcode-grid-border-off .barcode-label-cell {
+            border: none !important;
         }
 
         .barcode-preview-stage {
@@ -694,24 +790,33 @@
 
         /* ── Label 107 / 103 grid ───────────────────────────────── */
         .barcode-label-sheet {
-            /* screen: add inner padding so the grid has breathing room */
-            padding-left: 8mm !important;
-            padding-right: 8mm !important;
+            width: var(--barcode-label-sheet-width, 210mm);
+            min-height: var(--barcode-label-sheet-height, 297mm);
+            padding: var(--barcode-label-sheet-padding-top, 58.5mm)
+                var(--barcode-label-sheet-padding-right, 30mm)
+                var(--barcode-label-sheet-padding-bottom, 58.5mm)
+                var(--barcode-label-sheet-padding-left, 30mm) !important;
+        }
+
+        .barcode-label-sheet .barcode-sheet-title {
+            font-size: 1rem;
         }
 
         .barcode-label-grid {
             display: grid;
-            grid-template-columns: repeat(3, 50mm);
-            grid-template-rows: repeat(10, 18mm);
-            width: 150mm;
-            height: 180mm;
-            gap: 0;
+            grid-template-columns: repeat(var(--barcode-label-grid-columns, 3), var(--barcode-label-width, 50mm));
+            grid-template-rows: repeat(var(--barcode-label-grid-rows, 10), var(--barcode-label-height, 18mm));
+            width: var(--barcode-label-grid-width, 150mm);
+            height: var(--barcode-label-grid-height, 180mm);
+            gap: var(--barcode-label-gap, 0mm);
             margin: 0 auto;
+            box-sizing: border-box;
+            border: 0.3px solid #b9c7db;
         }
 
         .barcode-label-cell {
-            width: 50mm;
-            height: 18mm;
+            width: var(--barcode-label-width, 50mm);
+            height: var(--barcode-label-height, 18mm);
             border: 0.3px solid #bbb;
             display: flex;
             flex-direction: column;
@@ -720,6 +825,60 @@
             overflow: hidden;
             position: relative;
             box-sizing: border-box;
+        }
+
+        .barcode-label-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            min-width: 0;
+            min-height: 0;
+            box-sizing: border-box;
+            border: 0.3px solid #b9c7db;
+        }
+
+        .barcode-label-content--label107 {
+            margin: 0;
+            padding: 0.3mm;
+            box-sizing: border-box;
+        }
+
+        .barcode-label-cell--label107 {
+            padding: 0;
+        }
+
+        .barcode-label-cell--label107 .barcode-label-barcode {
+            height: 10mm;
+            margin: 3px 0;
+        }
+
+        .barcode-label-cell--label107 .barcode-label-svg {
+            height: 10mm !important;
+        }
+
+        .barcode-label-cell--label107 .barcode-label-category {
+            font-size: 4.3pt;
+        }
+
+        .barcode-label-cell--label107 .barcode-label-name {
+            font-size: 12px;
+        }
+
+        .barcode-label-cell--label107 .barcode-label-date {
+            font-size: 3.9pt;
+        }
+
+        .barcode-label-cell--label107 .barcode-label-dept {
+            font-size: 10px;
+        }
+
+        .barcode-label-cell--label107 .barcode-label-category,
+        .barcode-label-cell--label107 .barcode-label-name,
+        .barcode-label-cell--label107 .barcode-label-date,
+        .barcode-label-cell--label107 .barcode-label-dept {
+            margin: 0;
         }
 
         .barcode-label-cell--empty::after {
@@ -744,7 +903,7 @@
             line-height: 1.1;
         }
         .barcode-label-name {
-            font-size: 7pt;
+            font-size: 12px;
             font-weight: 700;
             color: #111;
             white-space: nowrap;
@@ -755,13 +914,13 @@
         .barcode-label-barcode {
             display: block;
             width: 100%;
-            height: 7mm;
-            margin: 1mm 0;
+            height: 10mm;
+            margin: 3px 0;
             overflow: hidden;
         }
         .barcode-label-svg {
             width: 100% !important;
-            height: 7mm !important;
+            height: 10mm !important;
             display: block;
         }
         .barcode-label-date {
@@ -774,7 +933,7 @@
             line-height: 1.2;
         }
         .barcode-label-dept {
-            font-size: 4.5pt;
+            font-size: 10px;
             font-weight: 700;
             color: #111;
             text-transform: uppercase;
@@ -788,14 +947,18 @@
         /* ── Print rules for label format ───────────────────────── */
         @media print {
             .barcode-label-sheet {
-                width: 210mm !important;
-                height: 297mm !important;
-                padding: 58.5mm 30mm !important;
+                width: var(--barcode-label-sheet-width, 210mm) !important;
+                min-height: var(--barcode-label-sheet-height, 297mm) !important;
+                height: var(--barcode-label-sheet-height, 297mm) !important;
+                padding: var(--barcode-label-sheet-padding-top, 58.5mm)
+                    var(--barcode-label-sheet-padding-right, 30mm)
+                    var(--barcode-label-sheet-padding-bottom, 58.5mm)
+                    var(--barcode-label-sheet-padding-left, 30mm) !important;
             }
             .barcode-label-grid {
                 margin: 0 !important;
-                width: 150mm !important;
-                height: 180mm !important;
+                width: var(--barcode-label-grid-width, 150mm) !important;
+                height: var(--barcode-label-grid-height, 180mm) !important;
             }
         }
     </style>
@@ -816,8 +979,17 @@
             var downloadPdfButton = document.getElementById('downloadPdfButton');
             var printButton = document.getElementById('printBarcodeButton');
             var imageButtons = document.querySelectorAll('[data-image-format]');
+            var barcodePageShell = document.getElementById('barcodePageShell');
+            var labelBorderToggleText = document.getElementById('labelBorderToggleText');
+            var labelBorderOptions = document.querySelectorAll('[data-label-content-border]');
+            var labelContentBorderStorageKey = 'barcodeLabelContentBorderMode';
+            var labelGridBorderToggleText = document.getElementById('labelGridBorderToggleText');
+            var labelGridBorderOptions = document.querySelectorAll('[data-label-grid-border]');
+            var labelGridBorderStorageKey = 'barcodeLabelGridBorderMode';
             var barcodePages = Array.from(document.querySelectorAll('[data-barcode-page]'));
             var barcodeSvgs = document.querySelectorAll('[data-barcode-svg]');
+            var labelContentBorderMode = 'on';
+            var labelGridBorderMode = 'on';
 
             var safeFileName = function (value) {
                 var normalized = (value || '')
@@ -833,6 +1005,84 @@
             var filePrefix = selectedFormat === 'a4'
                 ? 'barcode-a4-grid-' + safeFileName(selectedGridKey)
                 : 'barcode-' + safeFileName(selectedBarcode) + '-' + safeFileName(selectedLabel.file_suffix || selectedLabelKey);
+
+            var applyLabelContentBorderMode = function (mode) {
+                var normalizedMode = mode === 'off' ? 'off' : 'on';
+                labelContentBorderMode = normalizedMode;
+
+                if (barcodePageShell) {
+                    barcodePageShell.classList.toggle('barcode-content-border-off', normalizedMode === 'off');
+                }
+
+                if (labelBorderToggleText) {
+                    labelBorderToggleText.textContent = normalizedMode === 'off' ? 'Border OFF' : 'Border ON';
+                }
+
+                labelBorderOptions.forEach(function (button) {
+                    var isActive = button.dataset.labelContentBorder === normalizedMode;
+                    button.classList.toggle('active', isActive);
+                });
+
+                try {
+                    window.localStorage.setItem(labelContentBorderStorageKey, normalizedMode);
+                } catch (error) {
+                    // Ignore storage errors (e.g. private mode) and keep current mode in memory.
+                }
+            };
+
+            var getInitialLabelContentBorderMode = function () {
+                var fallbackMode = 'on';
+
+                try {
+                    var storedMode = window.localStorage.getItem(labelContentBorderStorageKey);
+                    if (storedMode === 'on' || storedMode === 'off') {
+                        return storedMode;
+                    }
+                } catch (error) {
+                    return fallbackMode;
+                }
+
+                return fallbackMode;
+            };
+
+            var applyLabelGridBorderMode = function (mode) {
+                var normalizedMode = mode === 'off' ? 'off' : 'on';
+                labelGridBorderMode = normalizedMode;
+
+                if (barcodePageShell) {
+                    barcodePageShell.classList.toggle('barcode-grid-border-off', normalizedMode === 'off');
+                }
+
+                if (labelGridBorderToggleText) {
+                    labelGridBorderToggleText.textContent = normalizedMode === 'off' ? 'Grid Border OFF' : 'Grid Border ON';
+                }
+
+                labelGridBorderOptions.forEach(function (button) {
+                    var isActive = button.dataset.labelGridBorder === normalizedMode;
+                    button.classList.toggle('active', isActive);
+                });
+
+                try {
+                    window.localStorage.setItem(labelGridBorderStorageKey, normalizedMode);
+                } catch (error) {
+                    // Ignore storage errors (e.g. private mode) and keep current mode in memory.
+                }
+            };
+
+            var getInitialLabelGridBorderMode = function () {
+                var fallbackMode = 'on';
+
+                try {
+                    var storedMode = window.localStorage.getItem(labelGridBorderStorageKey);
+                    if (storedMode === 'on' || storedMode === 'off') {
+                        return storedMode;
+                    }
+                } catch (error) {
+                    return fallbackMode;
+                }
+
+                return fallbackMode;
+            };
 
             var renderBarcodes = function () {
                 if (typeof JsBarcode !== 'function') {
@@ -1013,14 +1263,113 @@
                 pdf.save(filePrefix + '.pdf');
             };
 
+            var getLabelPrintPages = function () {
+                return barcodePages.map(function (pageElement) {
+                    var labelGrid = pageElement.querySelector('.barcode-label-grid');
+
+                    if (!labelGrid) {
+                        return '';
+                    }
+
+                    var gridClone = labelGrid.cloneNode(true);
+                    gridClone.style.margin = '0';
+                    gridClone.style.transformOrigin = 'top left';
+
+                    return '<section class="print-label-sheet">' + gridClone.outerHTML + '</section>';
+                }).filter(function (markup) {
+                    return Boolean(markup);
+                }).join('');
+            };
+
+            var openLabelPrintWindow = function () {
+                var printWindow = window.open('', '_blank', 'width=1280,height=900');
+
+                if (!printWindow) {
+                    alert('Popup print diblokir browser.');
+                    return;
+                }
+
+                var printPages = getLabelPrintPages();
+
+                if (!printPages) {
+                    alert('Layout label belum siap untuk dicetak.');
+                    printWindow.close();
+                    return;
+                }
+
+                var labelPaperWidth = parseFloat(selectedLabel.paper_width || 210);
+                var labelPaperHeight = parseFloat(selectedLabel.paper_height || 297);
+                var labelSheetWidth = selectedLabel.sheet_width || (labelPaperWidth + 'mm');
+                var labelSheetHeight = selectedLabel.sheet_height || (labelPaperHeight + 'mm');
+                var labelSheetPaddingTop = selectedLabel.sheet_padding_top || '58.5mm';
+                var labelSheetPaddingRight = selectedLabel.sheet_padding_right || '30mm';
+                var labelSheetPaddingBottom = selectedLabel.sheet_padding_bottom || '58.5mm';
+                var labelSheetPaddingLeft = selectedLabel.sheet_padding_left || '30mm';
+                var labelGridColumns = parseInt(selectedLabel.grid_columns || 3, 10);
+                var labelGridRows = parseInt(selectedLabel.grid_rows || 10, 10);
+                var labelWidth = selectedLabel.label_width || '50mm';
+                var labelHeight = selectedLabel.label_height || '18mm';
+                var labelGap = selectedLabel.label_gap || '0mm';
+                var labelGridWidth = selectedLabel.grid_width || '150mm';
+                var labelGridHeight = selectedLabel.grid_height || '180mm';
+                var labelContentBorderStyle = labelContentBorderMode === 'off' ? 'none' : '0.3px solid #b9c7db';
+                var labelGridBorderStyle = labelGridBorderMode === 'off' ? 'none' : '0.3px solid #b9c7db';
+                var labelCellBorderStyle = labelGridBorderMode === 'off' ? 'none' : '0.3px solid #bbb';
+
+                printWindow.document.write(
+                    '<!doctype html><html><head><title>Print Label Inventory</title>' +
+                    '<style>' +
+                    '@page { size: ' + labelPaperWidth + 'mm ' + labelPaperHeight + 'mm; margin: 0; }' +
+                    'html, body { margin: 0; padding: 0; background: #ffffff; }' +
+                    '.print-label-sheet { width: ' + labelSheetWidth + '; height: ' + labelSheetHeight + '; padding: ' + labelSheetPaddingTop + ' ' + labelSheetPaddingRight + ' ' + labelSheetPaddingBottom + ' ' + labelSheetPaddingLeft + '; box-sizing: border-box; overflow: hidden; page-break-after: always; break-after: page; }' +
+                    '.print-label-sheet:last-child { page-break-after: auto; break-after: avoid; }' +
+                    '.barcode-label-grid { display: grid; grid-template-columns: repeat(' + labelGridColumns + ', ' + labelWidth + '); grid-template-rows: repeat(' + labelGridRows + ', ' + labelHeight + '); width: ' + labelGridWidth + '; height: ' + labelGridHeight + '; gap: ' + labelGap + '; margin: 0; box-sizing: border-box; border: ' + labelGridBorderStyle + '; }' +
+                    '.barcode-label-cell { width: ' + labelWidth + '; height: ' + labelHeight + '; border: ' + labelCellBorderStyle + '; display: flex; flex-direction: column; justify-content: center; padding: 1mm 1.5mm; overflow: hidden; position: relative; box-sizing: border-box; }' +
+                    '.barcode-label-content { display: flex; flex-direction: column; justify-content: center; width: 100%; height: 100%; min-width: 0; min-height: 0; box-sizing: border-box; border: ' + labelContentBorderStyle + '; }' +
+                    '.barcode-label-content--label107 { margin: 0; padding: 0.3mm; box-sizing: border-box; }' +
+                    '.barcode-label-cell--label107 { padding: 0; }' +
+                    '.barcode-label-cell--label107 .barcode-label-barcode { height: 10mm; margin: 3px 0; }' +
+                    '.barcode-label-cell--label107 .barcode-label-svg { height: 10mm !important; }' +
+                    '.barcode-label-cell--label107 .barcode-label-category { font-size: 4.3pt; }' +
+                    '.barcode-label-cell--label107 .barcode-label-name { font-size: 12px; }' +
+                    '.barcode-label-cell--label107 .barcode-label-date { font-size: 3.9pt; }' +
+                    '.barcode-label-cell--label107 .barcode-label-dept { font-size: 10px; }' +
+                    '.barcode-label-cell--label107 .barcode-label-category, .barcode-label-cell--label107 .barcode-label-name, .barcode-label-cell--label107 .barcode-label-date, .barcode-label-cell--label107 .barcode-label-dept { margin: 0; }' +
+                    '.barcode-label-cell--empty::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,.03) 4px, rgba(0,0,0,.03) 5px); }' +
+                    '.barcode-label-category { font-size: 5pt; color: #666; text-transform: uppercase; letter-spacing: .3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }' +
+                    '.barcode-label-name { font-size: 12px; font-weight: 700; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }' +
+                    '.barcode-label-barcode { display: block; width: 100%; height: 10mm; margin: 3px 0; overflow: hidden; }' +
+                    '.barcode-label-svg { width: 100% !important; height: 10mm !important; display: block; }' +
+                    '.barcode-label-date { font-size: 4.5pt; color: #555; letter-spacing: .1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }' +
+                    '.barcode-label-dept { font-size: 10px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }' +
+                    '</style></head><body>' +
+                    printPages +
+                    '</body></html>'
+                );
+                printWindow.document.close();
+
+                setTimeout(function () {
+                    printWindow.focus();
+                    printWindow.print();
+                    setTimeout(function () {
+                        printWindow.close();
+                    }, 500);
+                }, 250);
+            };
+
             var openPrintWindow = async function () {
+                if (selectedFormat !== 'a4') {
+                    openLabelPrintWindow();
+                    return;
+                }
+
                 var canvases = await getPageCanvases();
 
                 if (!canvases.length) {
                     return;
                 }
 
-                var pageSize = selectedFormat === 'a4' ? 'A4' : (selectedLabel.paper_width || 107) + 'mm ' + (selectedLabel.paper_height || 50) + 'mm';
+                var pageSize = 'A4';
                 var printWindow = window.open('', '_blank', 'width=1280,height=900');
 
                 if (!printWindow) {
@@ -1054,6 +1403,21 @@
                     }, 500);
                 }, 250);
             };
+
+            applyLabelContentBorderMode(getInitialLabelContentBorderMode());
+            applyLabelGridBorderMode(getInitialLabelGridBorderMode());
+
+            labelBorderOptions.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    applyLabelContentBorderMode(button.dataset.labelContentBorder);
+                });
+            });
+
+            labelGridBorderOptions.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    applyLabelGridBorderMode(button.dataset.labelGridBorder);
+                });
+            });
 
             renderBarcodes();
 

@@ -3,13 +3,24 @@
 @section('content')
     @php
         $initialMode = old('flow_mode', old('condition') ? 'return' : 'borrow');
+        $publicSettings = $publicSettings ?? [];
+        $publicHeaderTitle = $publicSettings['public_header_title'] ?? 'Dashboard Inventaris';
+        $publicHeaderSubtitle = $publicSettings['public_header_subtitle'] ?? 'Sistem Peminjaman & Pengembalian Aset Sekolah';
+        $publicBorrowButtonLabel = $publicSettings['public_borrow_button_label'] ?? 'Peminjaman Barang';
+        $publicReturnButtonLabel = $publicSettings['public_return_button_label'] ?? 'Pengembalian Barang';
+        $publicReminderEnabled = ($publicSettings['public_reminder_enabled'] ?? '1') === '1';
+        $publicReminderBackground = $publicSettings['public_reminder_background'] ?? '#0A0A0A';
+        $publicReminderTextColor = $publicSettings['public_reminder_text_color'] ?? '#FFFFFF';
+        $publicReminderSpeed = (int) ($publicSettings['public_running_text_speed'] ?? 15);
+        $publicReminderFontSize = (int) ($publicSettings['public_running_text_font_size'] ?? 17);
+        $publicReminderFontFamily = $publicSettings['public_running_text_font_family'] ?? 'system-ui, sans-serif';
     @endphp
 
     <div class="public-dashboard">
         <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3 pb-3 border-bottom public-header">
             <div>
-                <h1 class="h2 fw-bold mb-1">Dashboard Inventaris</h1>
-                <p class="text-secondary mb-0">Sistem Peminjaman &amp; Pengembalian Aset Sekolah</p>
+                <h1 class="h2 fw-bold mb-1">{{ $publicHeaderTitle }}</h1>
+                <p class="text-secondary mb-0">{{ $publicHeaderSubtitle }}</p>
             </div>
             <button type="button" class="btn btn-outline-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#howToUseModal">
                 <i class="fa-solid fa-circle-info me-2"></i>Cara Pakai Aplikasi
@@ -19,12 +30,12 @@
         <div class="row g-3 justify-content-center mb-4">
             <div class="col-md-6 col-lg-4">
                 <button type="button" class="btn mode-toggle-btn mode-borrow w-100" data-target-mode="borrow">
-                    <i class="fa-solid fa-handshake-angle me-2"></i>Peminjaman Barang
+                    <i class="fa-solid fa-handshake-angle me-2"></i>{{ $publicBorrowButtonLabel }}
                 </button>
             </div>
             <div class="col-md-6 col-lg-4">
                 <button type="button" class="btn mode-toggle-btn mode-return w-100" data-target-mode="return">
-                    <i class="fa-solid fa-rotate-left me-2"></i>Pengembalian Barang
+                    <i class="fa-solid fa-rotate-left me-2"></i>{{ $publicReturnButtonLabel }}
                 </button>
             </div>
         </div>
@@ -177,11 +188,17 @@
             </div>
         </div>
 
-        <div class="public-reminder-banner" aria-label="Pengumuman waktu pengembalian barang">
-            <div class="public-reminder-marquee">
-                Kembalikan barang sebelum pukul 15.30 WIB !
+        @if($publicReminderEnabled)
+            <div
+                class="public-reminder-banner"
+                aria-label="Pengumuman waktu pengembalian barang"
+                style="background: {{ $publicReminderBackground }}; color: {{ $publicReminderTextColor }}; font-size: {{ $publicReminderFontSize }}px; font-family: {{ $publicReminderFontFamily }};"
+            >
+                <div class="public-reminder-marquee" style="--public-reminder-speed: {{ $publicReminderSpeed }}s;">
+                    {{ $runningText }}
+                </div>
             </div>
-        </div>
+        @endif
     </div>
 @endsection
 
@@ -297,7 +314,6 @@
             color: #ffffff;
             overflow: hidden;
             padding: 0.68rem 1rem;
-            font-size: 1.05rem;
         }
 
         .public-reminder-marquee {
@@ -306,7 +322,7 @@
             font-weight: 700;
             letter-spacing: 0.02em;
             padding-left: 100%;
-            animation: publicMarquee 15s linear infinite;
+            animation: publicMarquee var(--public-reminder-speed, 15s) linear infinite;
             will-change: transform;
         }
 
@@ -380,7 +396,6 @@
             }
 
             .public-reminder-banner {
-                font-size: 1.12rem;
                 padding-top: 0.76rem;
                 padding-bottom: 0.76rem;
             }
@@ -402,10 +417,6 @@
         }
 
         @media (max-width: 991.98px) {
-            .public-reminder-banner {
-                font-size: 0.95rem;
-            }
-
             .mode-toggle-btn {
                 min-height: 70px;
                 font-size: 1.05rem;

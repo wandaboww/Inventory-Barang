@@ -3,11 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\Asset;
+use App\Services\AssetOptionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AssetController extends Controller
 {
+    public function __construct(
+        private readonly AssetOptionService $assetOptionService,
+    ) {
+    }
+
     public function index(Request $request)
     {
         $query = Asset::query();
@@ -33,6 +40,7 @@ class AssetController extends Controller
 
         $assets = $query->latest('id')->paginate(20)->withQueryString();
         $allAssets = Asset::query()->get();
+        $optionValues = $this->assetOptionService->getOptions();
 
         $categoryCounts = $allAssets
             ->groupBy(fn (Asset $asset) => trim((string) ($asset->category ?: 'Tanpa Kategori')))
@@ -45,22 +53,48 @@ class AssetController extends Controller
             ->map(fn ($group) => $group->count())
             ->sortDesc();
 
-        return view('admin.assets.index', [
-            'assets' => $assets,
-            'allCategories' => Asset::query()
+        $allCategories = collect($this->mergeOptionValues(
+            $optionValues['categories'],
+            Asset::query()
                 ->whereNotNull('category')
                 ->where('category', '!=', '')
-                ->select('category')
-                ->distinct()
-                ->orderBy('category')
-                ->pluck('category'),
-            'allBrands' => Asset::query()
+                ->pluck('category')
+                ->all(),
+        ));
+
+        $allBrands = collect($this->mergeOptionValues(
+            $optionValues['brands'],
+            Asset::query()
                 ->whereNotNull('brand')
                 ->where('brand', '!=', '')
-                ->select('brand')
-                ->distinct()
-                ->orderBy('brand')
-                ->pluck('brand'),
+                ->pluck('brand')
+                ->all(),
+        ));
+
+        $allStatuses = collect($this->mergeOptionValues(
+            $optionValues['statuses'],
+            Asset::query()
+                ->whereNotNull('status')
+                ->where('status', '!=', '')
+                ->pluck('status')
+                ->all(),
+        ));
+
+        $allConditions = collect($this->mergeOptionValues(
+            $optionValues['conditions'],
+            Asset::query()
+                ->whereNotNull('condition')
+                ->where('condition', '!=', '')
+                ->pluck('condition')
+                ->all(),
+        ));
+
+        return view('admin.assets.index', [
+            'assets' => $assets,
+            'allCategories' => $allCategories,
+            'allBrands' => $allBrands,
+            'allStatuses' => $allStatuses,
+            'allConditions' => $allConditions,
             'totalAssets' => $allAssets->count(),
             'categoryCounts' => $categoryCounts,
             'laptopBrandCounts' => $laptopBrandCounts,
@@ -75,14 +109,16 @@ class AssetController extends Controller
 
     public function store(Request $request)
     {
+        $optionValues = $this->assetOptionService->getOptions();
+
         $validated = $request->validate([
-            'brand' => ['required', 'string', 'max:120'],
+            'brand' => ['required', 'string', 'max:120', Rule::in($optionValues['brands'])],
             'model' => ['required', 'string', 'max:120'],
             'serial_number' => ['required', 'string', 'max:120', 'unique:assets,serial_number'],
-            'category' => ['required', 'string', 'max:120'],
+            'category' => ['required', 'string', 'max:120', Rule::in($optionValues['categories'])],
             'barcode' => ['nullable', 'string', 'max:120', 'unique:assets,barcode'],
-            'status' => ['required', Rule::in(['available', 'borrowed', 'maintenance', 'lost'])],
-            'condition' => ['required', Rule::in(['good', 'minor_damage', 'major_damage', 'under_repair'])],
+            'status' => ['required', 'string', 'max:120', Rule::in($optionValues['statuses'])],
+            'condition' => ['required', 'string', 'max:120', Rule::in($optionValues['conditions'])],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -96,14 +132,20 @@ class AssetController extends Controller
 
     public function update(Request $request, Asset $asset)
     {
+        $optionValues = $this->assetOptionService->getOptions();
+        $categoryOptions = $this->mergeOptionValues($optionValues['categories'], [(string) $asset->category]);
+        $brandOptions = $this->mergeOptionValues($optionValues['brands'], [(string) $asset->brand]);
+        $statusOptions = $this->mergeOptionValues($optionValues['statuses'], [(string) $asset->status]);
+        $conditionOptions = $this->mergeOptionValues($optionValues['conditions'], [(string) $asset->condition]);
+
         $validated = $request->validate([
-            'brand' => ['required', 'string', 'max:120'],
+            'brand' => ['required', 'string', 'max:120', Rule::in($brandOptions)],
             'model' => ['required', 'string', 'max:120'],
             'serial_number' => ['required', 'string', 'max:120', Rule::unique('assets', 'serial_number')->ignore($asset->id)],
-            'category' => ['required', 'string', 'max:120'],
+            'category' => ['required', 'string', 'max:120', Rule::in($categoryOptions)],
             'barcode' => ['nullable', 'string', 'max:120', Rule::unique('assets', 'barcode')->ignore($asset->id)],
-            'status' => ['required', Rule::in(['available', 'borrowed', 'maintenance', 'lost'])],
-            'condition' => ['required', Rule::in(['good', 'minor_damage', 'major_damage', 'under_repair'])],
+            'status' => ['required', 'string', 'max:120', Rule::in($statusOptions)],
+            'condition' => ['required', 'string', 'max:120', Rule::in($conditionOptions)],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -125,5 +167,35 @@ class AssetController extends Controller
         $asset->delete();
 
         return redirect()->route('admin.assets.index')->with('success', 'Barang berhasil dihapus.');
+    }
+
+    /**
+     * @param list<string> $defaultValues
+     * @param list<string> $extraValues
+     * @return list<string>
+     */
+    private function mergeOptionValues(array $defaultValues, array $extraValues): array
+    {
+        $merged = [];
+        $seen = [];
+
+        foreach (array_merge($defaultValues, $extraValues) as $value) {
+            $clean = trim((string) $value);
+
+            if ($clean === '') {
+                continue;
+            }
+
+            $dedupeKey = Str::lower($clean);
+
+            if (isset($seen[$dedupeKey])) {
+                continue;
+            }
+
+            $seen[$dedupeKey] = true;
+            $merged[] = $clean;
+        }
+
+        return $merged;
     }
 }

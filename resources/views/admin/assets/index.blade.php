@@ -1,6 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
+    @php
+        $formatOptionLabel = static fn (string $value): string => ucwords(str_replace(['_', '-'], ' ', $value));
+    @endphp
     <div class="asset-page-shell" id="assetPageShell">
     <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
         <div>
@@ -82,8 +85,8 @@
                     <label class="form-label small text-secondary mb-1">Status</label>
                     <select class="form-select" name="status">
                         <option value="">Semua Status</option>
-                        @foreach(['available', 'borrowed', 'maintenance', 'lost'] as $status)
-                            <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ ucfirst($status) }}</option>
+                        @foreach($allStatuses as $status)
+                            <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ $formatOptionLabel($status) }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -105,7 +108,8 @@
                     <th>Merk</th>
                     <th>MODEL / TYPE / SERI</th>
                     <th class="text-center">Serial Number</th>
-                    <th class="text-center">Barcode</th>
+                    <th class="text-center">Kode Barcode</th>
+                    <th class="text-center">Barcode Batang</th>
                     <th class="text-center">Status</th>
                     <th class="text-center">Kondisi</th>
                     <th class="text-center">Aksi</th>
@@ -140,6 +144,13 @@
                         <td class="text-center">{{ $asset->serial_number }}</td>
                         <td class="text-center">
                             @if($barcodeDownloadValue !== '')
+                                <span class="font-monospace">{{ $barcodeDownloadValue }}</span>
+                            @else
+                                -
+                            @endif
+                        </td>
+                        <td class="text-center">
+                            @if($barcodeDownloadValue !== '')
                                 <div class="asset-barcode-wrap">
                                     <svg class="asset-barcode" data-barcode-value="{{ $barcodeDownloadValue }}" role="img" aria-label="Barcode {{ $barcodeDownloadValue }}"></svg>
                                 </div>
@@ -148,10 +159,10 @@
                             @endif
                         </td>
                         <td class="text-center">
-                            <span class="badge {{ $statusBadgeClass }}">{{ ucwords(str_replace('_', ' ', $asset->status)) }}</span>
+                            <span class="badge {{ $statusBadgeClass }}">{{ $formatOptionLabel($asset->status) }}</span>
                         </td>
                         <td class="text-center">
-                            <span class="badge {{ $conditionBadgeClass }}">{{ ucwords(str_replace('_', ' ', $asset->condition)) }}</span>
+                            <span class="badge {{ $conditionBadgeClass }}">{{ $formatOptionLabel($asset->condition) }}</span>
                         </td>
                         <td class="text-center">
                             <div class="asset-action-group d-inline-flex align-items-center gap-2">
@@ -179,7 +190,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="text-center text-muted py-4">Belum ada data barang.</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted py-4">Belum ada data barang.</td></tr>
                 @endforelse
                 </tbody>
             </table>
@@ -287,8 +298,8 @@
                                     <div class="col-12">
                                         <label class="form-label">Status</label>
                                         <select name="status" class="form-select @error('status') is-invalid @enderror" required>
-                                            @foreach(['available', 'borrowed', 'maintenance'] as $status)
-                                                <option value="{{ $status }}" @selected($editStatus === $status)>{{ ucfirst($status) }}</option>
+                                            @foreach($allStatuses as $status)
+                                                <option value="{{ $status }}" @selected($editStatus === $status)>{{ $formatOptionLabel($status) }}</option>
                                             @endforeach
                                         </select>
                                         @error('status')
@@ -299,8 +310,8 @@
                                     <div class="col-12">
                                         <label class="form-label">Kondisi</label>
                                         <select name="condition" class="form-select @error('condition') is-invalid @enderror" required>
-                                            @foreach(['good', 'minor_damage', 'major_damage', 'under_repair'] as $condition)
-                                                <option value="{{ $condition }}" @selected($editCondition === $condition)>{{ ucwords(str_replace('_', ' ', $condition)) }}</option>
+                                            @foreach($allConditions as $condition)
+                                                <option value="{{ $condition }}" @selected($editCondition === $condition)>{{ $formatOptionLabel($condition) }}</option>
                                             @endforeach
                                         </select>
                                         @error('condition')
@@ -438,8 +449,8 @@
                                     <div class="col-12 col-md-6">
                                         <label class="form-label">Status</label>
                                         <select name="status" class="form-select @error('status') is-invalid @enderror" required>
-                                            @foreach(['available', 'borrowed', 'maintenance'] as $status)
-                                                <option value="{{ $status }}" @selected(old('status', 'available') === $status)>{{ ucfirst($status) }}</option>
+                                            @foreach($allStatuses as $status)
+                                                <option value="{{ $status }}" @selected(old('status', $allStatuses->first()) === $status)>{{ $formatOptionLabel($status) }}</option>
                                             @endforeach
                                         </select>
                                         @error('status')
@@ -450,8 +461,8 @@
                                     <div class="col-12 col-md-6">
                                         <label class="form-label">Kondisi</label>
                                         <select name="condition" class="form-select @error('condition') is-invalid @enderror" required>
-                                            @foreach(['good', 'minor_damage', 'major_damage', 'under_repair'] as $condition)
-                                                <option value="{{ $condition }}" @selected(old('condition', 'good') === $condition)>{{ ucwords(str_replace('_', ' ', $condition)) }}</option>
+                                            @foreach($allConditions as $condition)
+                                                <option value="{{ $condition }}" @selected(old('condition', $allConditions->first()) === $condition)>{{ $formatOptionLabel($condition) }}</option>
                                             @endforeach
                                         </select>
                                         @error('condition')

@@ -36,10 +36,6 @@
                             <input type="text" name="kelas" class="form-control" value="-" required>
                         </div>
                         <div class="col-12">
-                            <label class="form-label">Email</label>
-                            <input type="email" name="email" class="form-control">
-                        </div>
-                        <div class="col-12">
                             <label class="form-label">No. HP <span class="text-danger">*</span></label>
                             <input type="text" name="phone" class="form-control" required>
                         </div>
@@ -56,7 +52,7 @@
                 <div class="card-header bg-white">
                     <form method="GET" action="{{ route('admin.users.index') }}" class="row g-2">
                         <div class="col-md-5">
-                            <input type="text" class="form-control" name="search" value="{{ $filters['search'] }}" placeholder="Cari ID/Nama/Kelas/Email/HP...">
+                            <input type="text" class="form-control" name="search" value="{{ $filters['search'] }}" placeholder="Cari ID/Nama/Kelas/HP...">
                         </div>
                         <div class="col-md-3">
                             <select class="form-select" name="role">
@@ -87,7 +83,7 @@
                             <th>Identity</th>
                             <th>Nama</th>
                             <th>Kelas</th>
-                            <th>Email / HP</th>
+                            <th>No. HP</th>
                             <th>Role</th>
                             <th class="text-end">Aksi</th>
                         </tr>
@@ -99,17 +95,85 @@
                                 <td>{{ $user->identity_number }}</td>
                                 <td>{{ $user->name }}</td>
                                 <td>{{ $user->kelas }}</td>
+                                <td>{{ $user->phone ?: '-' }}</td>
                                 <td>
-                                    <div>{{ $user->email ?: '-' }}</div>
-                                    <small class="text-muted">{{ $user->phone ?: '-' }}</small>
+                                    @php
+                                        $roleBadgeClass = match ($user->role) {
+                                            'admin' => 'text-bg-danger',
+                                            'teacher' => 'text-bg-warning text-dark',
+                                            'student' => 'text-bg-success',
+                                            default => 'text-bg-secondary',
+                                        };
+                                    @endphp
+                                    <span class="badge {{ $roleBadgeClass }}">{{ $user->role }}</span>
                                 </td>
-                                <td><span class="badge text-bg-secondary">{{ $user->role }}</span></td>
                                 <td class="text-end">
-                                    <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Hapus pengguna ini?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">Hapus</button>
-                                    </form>
+                                    <div class="d-inline-flex gap-1">
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#editUserModal-{{ $user->id }}"
+                                        >
+                                            Edit
+                                        </button>
+                                        <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Hapus pengguna ini?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Hapus</button>
+                                        </form>
+                                    </div>
+
+                                    <div class="modal fade text-start" id="editUserModal-{{ $user->id }}" tabindex="-1" aria-labelledby="editUserModalLabel-{{ $user->id }}" aria-hidden="true">
+                                        <div class="modal-dialog modal-dialog-centered">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="editUserModalLabel-{{ $user->id }}">Edit Pengguna</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <form method="POST" action="{{ route('admin.users.update', $user) }}">
+                                                    @csrf
+                                                    @method('PUT')
+                                                    <div class="modal-body">
+                                                        <div class="mb-2">
+                                                            <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
+                                                            <input type="text" name="name" class="form-control" value="{{ $user->name }}" required>
+                                                        </div>
+                                                        <div class="mb-2">
+                                                            <label class="form-label">NISN <span class="text-danger">*</span></label>
+                                                            <input type="text" name="identity_number" class="form-control" value="{{ $user->identity_number }}" required>
+                                                        </div>
+                                                        <div class="row g-2">
+                                                            <div class="col-md-6">
+                                                                <label class="form-label">Role <span class="text-danger">*</span></label>
+                                                                <select name="role" class="form-select" required>
+                                                                    @foreach(['student', 'teacher', 'admin'] as $roleOption)
+                                                                        <option value="{{ $roleOption }}" @selected($user->role === $roleOption)>{{ $roleOption }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="form-label">Kelas <span class="text-danger">*</span></label>
+                                                                <input type="text" name="kelas" class="form-control" value="{{ $user->kelas }}" required>
+                                                            </div>
+                                                        </div>
+                                                        <div class="mt-2">
+                                                            <label class="form-label">No. HP <span class="text-danger">*</span></label>
+                                                            <input type="text" name="phone" class="form-control" value="{{ $user->phone }}" required>
+                                                        </div>
+                                                        <div class="mt-2">
+                                                            <label class="form-label">Password Baru (opsional)</label>
+                                                            <input type="password" name="password" class="form-control" minlength="8" placeholder="Kosongkan jika tidak diubah">
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                                                        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                         @empty

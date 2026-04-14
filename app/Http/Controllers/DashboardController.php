@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Asset;
 use App\Models\Loan;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,6 +23,66 @@ class DashboardController extends Controller
 
     public function publicIndex(): View
     {
+        $publicSettingDefaults = [
+            'public_running_text' => 'Kembalikan barang sebelum pukul 15.30 WIB !',
+            'public_reminder_enabled' => '1',
+            'public_reminder_background' => '#0A0A0A',
+            'public_reminder_text_color' => '#FFFFFF',
+            'public_running_text_speed' => '15',
+            'public_running_text_font_size' => '17',
+            'public_running_text_font_family' => 'system',
+            'public_header_title' => 'Dashboard Inventaris',
+            'public_header_subtitle' => 'Sistem Peminjaman & Pengembalian Aset Sekolah',
+            'public_borrow_button_label' => 'Peminjaman Barang',
+            'public_return_button_label' => 'Pengembalian Barang',
+        ];
+
+        $storedSettingValues = Setting::query()
+            ->whereIn('setting_key', array_keys($publicSettingDefaults))
+            ->pluck('setting_value', 'setting_key');
+
+        $publicSettings = $publicSettingDefaults;
+        foreach ($storedSettingValues as $key => $value) {
+            if (!is_string($key) || !array_key_exists($key, $publicSettings)) {
+                continue;
+            }
+
+            if ($value !== null && trim((string) $value) !== '') {
+                $publicSettings[$key] = (string) $value;
+            }
+        }
+
+        $runningText = $publicSettings['public_running_text'];
+
+        $fontFamilyMap = [
+            'system' => 'system-ui, sans-serif',
+            'arial' => 'Arial, sans-serif',
+            'verdana' => 'Verdana, sans-serif',
+            'tahoma' => 'Tahoma, sans-serif',
+            'georgia' => 'Georgia, serif',
+            'mono' => 'monospace',
+        ];
+
+        $speed = (int) ($publicSettings['public_running_text_speed'] ?? 15);
+        $fontSize = (int) ($publicSettings['public_running_text_font_size'] ?? 17);
+        $fontFamilyKey = (string) ($publicSettings['public_running_text_font_family'] ?? 'system');
+        $backgroundColor = strtoupper((string) ($publicSettings['public_reminder_background'] ?? '#0A0A0A'));
+        $textColor = strtoupper((string) ($publicSettings['public_reminder_text_color'] ?? '#FFFFFF'));
+
+        if (!preg_match('/^#[0-9A-F]{6}$/', $backgroundColor)) {
+            $backgroundColor = '#0A0A0A';
+        }
+
+        if (!preg_match('/^#[0-9A-F]{6}$/', $textColor)) {
+            $textColor = '#FFFFFF';
+        }
+
+        $publicSettings['public_running_text_speed'] = (string) max(5, min(40, $speed));
+        $publicSettings['public_running_text_font_size'] = (string) max(12, min(36, $fontSize));
+        $publicSettings['public_running_text_font_family'] = $fontFamilyMap[$fontFamilyKey] ?? $fontFamilyMap['system'];
+        $publicSettings['public_reminder_background'] = $backgroundColor;
+        $publicSettings['public_reminder_text_color'] = $textColor;
+
         $availableAssets = Asset::query()
             ->where('status', 'available')
             ->orderBy('brand')
@@ -42,6 +103,8 @@ class DashboardController extends Controller
         return view('dashboard.public', [
             'availableAssets' => $availableAssets,
             'activeLoans' => $activeLoans,
+            'runningText' => $runningText,
+            'publicSettings' => $publicSettings,
         ]);
     }
 

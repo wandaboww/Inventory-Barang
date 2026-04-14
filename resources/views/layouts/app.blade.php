@@ -246,6 +246,12 @@
                             <span>Barcode</span>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link admin-nav-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}" href="{{ route('admin.settings.index') }}">
+                            <i class="fa-solid fa-gears"></i>
+                            <span>Pengaturan</span>
+                        </a>
+                    </li>
                 </ul>
 
                 <div class="admin-nav-right d-flex flex-column flex-lg-row align-items-lg-center gap-2 ms-lg-auto">
