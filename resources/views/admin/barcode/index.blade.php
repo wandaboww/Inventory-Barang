@@ -3,11 +3,12 @@
 @section('content')
     @php
         $printFormat = strtolower((string) request('format', 'a4'));
-        $printFormat = in_array($printFormat, ['a4', 'label107'], true) ? $printFormat : 'a4';
+        $printFormat = in_array($printFormat, ['a4', 'label107', 'label103'], true) ? $printFormat : 'a4';
 
         $a4GridVariants = [
-            '2x3' => [
-                'label' => '2 x 3 Grid (6 kartu)',
+            'ringkas' => [
+                'label' => 'Ringkas',
+                'description' => '2 x 3 Grid (6 kartu)',
                 'columns' => 2,
                 'per_page' => 6,
                 'barcode_width' => 1.25,
@@ -16,8 +17,9 @@
                 'barcode_min_height' => '20mm',
                 'capture_scale' => 2.15,
             ],
-            '2x4' => [
-                'label' => '2 x 4 Grid (8 kartu)',
+            'standar' => [
+                'label' => 'Standar',
+                'description' => '2 x 4 Grid (8 kartu)',
                 'columns' => 2,
                 'per_page' => 8,
                 'barcode_width' => 1.18,
@@ -26,8 +28,9 @@
                 'barcode_min_height' => '19mm',
                 'capture_scale' => 2.2,
             ],
-            '3x4' => [
-                'label' => '3 x 4 Grid (12 kartu)',
+            'rapat' => [
+                'label' => 'Rapat',
+                'description' => '3 x 4 Grid (12 kartu)',
                 'columns' => 3,
                 'per_page' => 12,
                 'barcode_width' => 1.05,
@@ -38,9 +41,47 @@
             ],
         ];
 
-        $selectedGridKey = strtolower((string) request('grid', '3x4'));
-        $selectedGridKey = array_key_exists($selectedGridKey, $a4GridVariants) ? $selectedGridKey : '3x4';
+        $labelVariants = [
+            'label107' => [
+                'button_label' => 'Label 107',
+                'label' => 'Label T&J 107',
+                'dimensions' => '107 x 50 mm',
+                'paper_width' => 107,
+                'paper_height' => 50,
+                'sheet_width' => '107mm',
+                'sheet_height' => '50mm',
+                'barcode_width' => 1.45,
+                'barcode_height' => 62,
+                'capture_scale' => 2.6,
+                'file_suffix' => 'label-tj-107',
+            ],
+            'label103' => [
+                'button_label' => 'Label 103',
+                'label' => 'Label T&J 103',
+                'dimensions' => '103 x 50 mm',
+                'paper_width' => 103,
+                'paper_height' => 50,
+                'sheet_width' => '103mm',
+                'sheet_height' => '50mm',
+                'barcode_width' => 1.38,
+                'barcode_height' => 62,
+                'capture_scale' => 2.6,
+                'file_suffix' => 'label-tj-103',
+            ],
+        ];
+
+        $gridAliases = [
+            '2x3' => 'ringkas',
+            '2x4' => 'standar',
+            '3x4' => 'rapat',
+        ];
+
+        $selectedGridKey = strtolower((string) request('grid', 'rapat'));
+        $selectedGridKey = $gridAliases[$selectedGridKey] ?? $selectedGridKey;
+        $selectedGridKey = array_key_exists($selectedGridKey, $a4GridVariants) ? $selectedGridKey : 'rapat';
         $selectedGrid = $a4GridVariants[$selectedGridKey];
+        $selectedLabelKey = array_key_exists($printFormat, $labelVariants) ? $printFormat : 'label107';
+        $selectedLabel = $labelVariants[$selectedLabelKey];
         $a4Pages = $assets->chunk($selectedGrid['per_page']);
 
         $selectedAsset = $assets->first();
@@ -51,7 +92,7 @@
         <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
             <div>
                 <h4 class="mb-1">Barcode Barang</h4>
-                <p class="text-muted mb-0">Pilih ukuran kertas dulu, lalu varian grid A4 muncul di panel kiri untuk mengatur kepadatan kartu barcode.</p>
+                <p class="text-muted mb-0">Pilih ukuran kertas dulu, lalu preset grid A4 muncul di panel kiri untuk mengatur kepadatan kartu barcode.</p>
             </div>
         </div>
 
@@ -61,7 +102,7 @@
                     <div class="card-header bg-primary text-white fw-semibold d-flex justify-content-between align-items-center">
                         <span>Setting Barcode</span>
                         <span class="badge text-bg-light text-primary">
-                            {{ $printFormat === 'a4' ? $selectedGrid['label'] : 'Label 107' }}
+                            {{ $printFormat === 'a4' ? $selectedGrid['label'] : $selectedLabel['label'] }}
                         </span>
                     </div>
                     <div class="card-body d-flex flex-column gap-3">
@@ -80,12 +121,18 @@
                                 >
                                     Label 107
                                 </a>
+                                <a
+                                    href="{{ request()->fullUrlWithQuery(['format' => 'label103']) }}"
+                                    class="btn {{ $printFormat === 'label103' ? 'btn-primary' : 'btn-outline-primary' }} rounded-pill px-4"
+                                >
+                                    Label 103
+                                </a>
                             </div>
                         </div>
 
                         @if($printFormat === 'a4')
                             <div>
-                                <label class="barcode-settings-label">Varian grid A4</label>
+                                <label class="barcode-settings-label">Preset grid A4</label>
                                 <div class="dropdown barcode-download-group w-100">
                                     <button class="btn btn-outline-primary dropdown-toggle w-100 d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         <span><i class="fa-solid fa-border-all me-2"></i>{{ $selectedGrid['label'] }}</span>
@@ -97,7 +144,7 @@
                                                     class="dropdown-item {{ $selectedGridKey === $gridKey ? 'active' : '' }}"
                                                     href="{{ request()->fullUrlWithQuery(['grid' => $gridKey]) }}"
                                                 >
-                                                    {{ $gridVariant['label'] }}
+                                                    {{ $gridVariant['label'] }} <span class="text-muted">({{ $gridVariant['description'] }})</span>
                                                 </a>
                                             </li>
                                         @endforeach
@@ -133,7 +180,7 @@
                         </div>
 
                         <div class="small text-muted">
-                            {{ $printFormat === 'a4' ? 'A4 Grid menampilkan ' . $selectedGrid['per_page'] . ' kartu per halaman dan mencetak semua aset yang tersedia.' : 'Label 107 tetap memakai satu kartu barcode.' }}
+                            {{ $printFormat === 'a4' ? $selectedGrid['label'] . ' menampilkan ' . $selectedGrid['per_page'] . ' kartu per halaman dan mencetak semua aset yang tersedia.' : $selectedLabel['label'] . ' (' . $selectedLabel['dimensions'] . ') memakai kertas label T&J dan tetap satu kartu barcode.' }}
                         </div>
                     </div>
                 </div>
@@ -144,7 +191,7 @@
                     <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <div>
                             <span>Container Preview</span>
-                            <div class="small text-muted fw-normal">Format {{ $printFormat === 'a4' ? $selectedGrid['label'] : 'Label 107' }}</div>
+                            <div class="small text-muted fw-normal">Format {{ $printFormat === 'a4' ? $selectedGrid['label'] : $selectedLabel['label'] }}</div>
                         </div>
                         <span class="badge text-bg-primary">{{ $assets->count() }} aset</span>
                     </div>
@@ -165,8 +212,8 @@
                                                 <div class="barcode-sheet-header barcode-sheet-header--grid">
                                                     <div>
                                                         <div class="barcode-sheet-kicker">Inventory Barang</div>
-                                                        <h2 class="barcode-sheet-title">A4 Grid</h2>
-                                                        <div class="barcode-sheet-subtitle">{{ $selectedGrid['label'] }} • {{ $pageAssets->count() }} kartu pada halaman ini</div>
+                                                        <h2 class="barcode-sheet-title">A4 Grid {{ $selectedGrid['label'] }}</h2>
+                                                        <div class="barcode-sheet-subtitle">{{ $selectedGrid['description'] }} • {{ $pageAssets->count() }} kartu pada halaman ini</div>
                                                     </div>
                                                     <div class="barcode-sheet-page-chip">Halaman {{ $pageIndex + 1 }}/{{ $a4Pages->count() }}</div>
                                                 </div>
@@ -194,7 +241,6 @@
                                                                     role="img"
                                                                     aria-label="Barcode {{ $assetBarcode }}"
                                                                 ></svg>
-                                                                <div class="barcode-grid-code">{{ $assetBarcode }}</div>
                                                             </div>
                                                         </div>
                                                     @endforeach
@@ -205,25 +251,15 @@
                                 @else
                                     <div
                                         id="barcodePreviewSheet"
-                                        class="barcode-sheet barcode-sheet--label107"
+                                        class="barcode-sheet barcode-sheet--label"
+                                        style="--barcode-label-sheet-width: {{ $selectedLabel['sheet_width'] }}; --barcode-label-sheet-height: {{ $selectedLabel['sheet_height'] }};"
                                         data-barcode-page
                                         data-page-index="0"
                                     >
                                         <div class="barcode-sheet-topbar"></div>
 
-                                        <div class="barcode-sheet-header">
-                                            <div class="barcode-sheet-kicker">Inventory Barang</div>
+                                        <div class="barcode-sheet-header barcode-sheet-header--label">
                                             <h2 class="barcode-sheet-title">{{ $selectedAsset->brand }} {{ $selectedAsset->model }}</h2>
-                                            <div class="barcode-sheet-subtitle">
-                                                Preview Label 107
-                                            </div>
-                                        </div>
-
-                                        <div class="barcode-sheet-meta">
-                                            <div>
-                                                <span>Serial Number</span>
-                                                <strong>{{ $selectedAsset->serial_number }}</strong>
-                                            </div>
                                         </div>
 
                                         <div class="barcode-sheet-barcode-zone">
@@ -232,16 +268,11 @@
                                                 class="barcode-preview-svg"
                                                 data-barcode-svg
                                                 data-barcode-value="{{ $selectedBarcode }}"
-                                                data-barcode-width="1.45"
-                                                data-barcode-height="62"
+                                                data-barcode-width="{{ $selectedLabel['barcode_width'] }}"
+                                                data-barcode-height="{{ $selectedLabel['barcode_height'] }}"
                                                 role="img"
                                                 aria-label="Barcode {{ $selectedBarcode }}"
                                             ></svg>
-                                            <div class="barcode-preview-code">{{ $selectedBarcode }}</div>
-                                        </div>
-
-                                        <div class="barcode-sheet-note">
-                                            Pilih printer Epson L4150 pada dialog print untuk hasil fisik.
                                         </div>
                                     </div>
                                 @endif
@@ -355,9 +386,9 @@
             padding: 10mm 9mm 9mm;
         }
 
-        .barcode-sheet--label107 {
-            width: 107mm;
-            min-height: 50mm;
+        .barcode-sheet--label {
+            width: var(--barcode-label-sheet-width, 107mm);
+            min-height: var(--barcode-label-sheet-height, 50mm);
             padding: 4.5mm 5mm 4mm;
         }
 
@@ -369,6 +400,10 @@
         .barcode-sheet-header {
             margin-bottom: 1rem;
             text-align: center;
+        }
+
+        .barcode-sheet-header--label {
+            margin-bottom: 0.65rem;
         }
 
         .barcode-sheet-header--grid {
@@ -418,44 +453,8 @@
             font-size: 1.15rem;
         }
 
-        .barcode-sheet--label107 .barcode-sheet-title {
+        .barcode-sheet--label .barcode-sheet-title {
             font-size: 1rem;
-        }
-
-        .barcode-sheet-subtitle {
-            margin-top: 0.35rem;
-            color: #64748b;
-            font-size: 0.82rem;
-        }
-
-        .barcode-sheet-meta {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-        }
-
-        .barcode-sheet-meta div {
-            border: 1px solid #e0e8f4;
-            border-radius: 0.85rem;
-            padding: 0.75rem 0.8rem;
-            background: #fbfdff;
-        }
-
-        .barcode-sheet-meta span {
-            display: block;
-            margin-bottom: 0.15rem;
-            color: #64748b;
-            font-size: 0.72rem;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }
-
-        .barcode-sheet-meta strong {
-            display: block;
-            color: #0f172a;
-            font-size: 0.92rem;
-            word-break: break-word;
         }
 
         .barcode-a4-grid {
@@ -513,14 +512,6 @@
             min-height: var(--barcode-a4-grid-barcode-min-height, 17mm);
         }
 
-        .barcode-grid-code {
-            color: #1d2a42;
-            font-size: 0.67rem;
-            font-weight: 700;
-            letter-spacing: 0.06em;
-            text-align: center;
-        }
-
         .barcode-sheet-barcode-zone {
             display: flex;
             flex-direction: column;
@@ -539,16 +530,8 @@
             min-height: 56px;
         }
 
-        .barcode-sheet--label107 .barcode-preview-svg {
+        .barcode-sheet--label .barcode-preview-svg {
             min-height: 58px;
-        }
-
-        .barcode-preview-code {
-            color: #1d2a42;
-            font-size: 0.95rem;
-            font-weight: 700;
-            letter-spacing: 0.06em;
-            text-align: center;
         }
 
         .barcode-sheet-footer {
@@ -557,13 +540,6 @@
             justify-content: center;
             gap: 0.5rem;
             margin-top: 1rem;
-        }
-
-        .barcode-sheet-note {
-            margin-top: 0.85rem;
-            color: #64748b;
-            font-size: 0.82rem;
-            text-align: center;
         }
 
         @media (max-width: 1199.98px) {
@@ -584,6 +560,8 @@
             var selectedBarcode = @json($selectedBarcode);
             var selectedGrid = @json($selectedGrid);
             var selectedGridKey = @json($selectedGridKey);
+            var selectedLabel = @json($selectedLabel);
+            var selectedLabelKey = @json($selectedLabelKey);
             var downloadPdfButton = document.getElementById('downloadPdfButton');
             var printButton = document.getElementById('printBarcodeButton');
             var imageButtons = document.querySelectorAll('[data-image-format]');
@@ -603,7 +581,7 @@
 
             var filePrefix = selectedFormat === 'a4'
                 ? 'barcode-a4-grid-' + safeFileName(selectedGridKey)
-                : 'barcode-' + safeFileName(selectedBarcode) + '-label107';
+                : 'barcode-' + safeFileName(selectedBarcode) + '-' + safeFileName(selectedLabel.file_suffix || selectedLabelKey);
 
             var renderBarcodes = function () {
                 if (typeof JsBarcode !== 'function') {
@@ -617,8 +595,8 @@
                         return;
                     }
 
-                    var width = parseFloat(svg.dataset.barcodeWidth || (selectedFormat === 'a4' ? String(selectedGrid.barcode_width || 1.05) : '1.45'));
-                    var height = parseInt(svg.dataset.barcodeHeight || (selectedFormat === 'a4' ? String(selectedGrid.barcode_height || 36) : '62'), 10);
+                    var width = parseFloat(svg.dataset.barcodeWidth || (selectedFormat === 'a4' ? String(selectedGrid.barcode_width || 1.05) : String(selectedLabel.barcode_width || 1.45)));
+                    var height = parseInt(svg.dataset.barcodeHeight || (selectedFormat === 'a4' ? String(selectedGrid.barcode_height || 36) : String(selectedLabel.barcode_height || 62)), 10);
 
                     svg.innerHTML = '';
 
@@ -646,7 +624,7 @@
 
                 return await html2canvas(pageElement, {
                     backgroundColor: '#ffffff',
-                    scale: selectedFormat === 'a4' ? parseFloat(selectedGrid.capture_scale || 2.2) : 2.6,
+                    scale: selectedFormat === 'a4' ? parseFloat(selectedGrid.capture_scale || 2.2) : parseFloat(selectedLabel.capture_scale || 2.6),
                     useCORS: true,
                     logging: false,
                 });
@@ -763,7 +741,7 @@
                     return;
                 }
 
-                var pdfFormat = selectedFormat === 'label107' ? [107, 50] : 'a4';
+                var pdfFormat = selectedFormat === 'a4' ? 'a4' : [selectedLabel.paper_width || 107, selectedLabel.paper_height || 50];
                 var pdf = new jsPDF({
                     orientation: 'portrait',
                     unit: 'mm',
@@ -791,7 +769,7 @@
                     return;
                 }
 
-                var pageSize = selectedFormat === 'label107' ? '107mm 50mm' : 'A4';
+                var pageSize = selectedFormat === 'a4' ? 'A4' : (selectedLabel.paper_width || 107) + 'mm ' + (selectedLabel.paper_height || 50) + 'mm';
                 var printWindow = window.open('', '_blank', 'width=1280,height=900');
 
                 if (!printWindow) {
