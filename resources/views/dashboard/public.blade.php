@@ -115,13 +115,13 @@
             <div class="col-lg-8">
                 <div class="card h-100 public-card">
                     <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center gap-2 flex-wrap">
-                        <div class="fw-bold fs-4 text-dark">
+                        <div class="fw-bold fs-4 text-dark" id="publicStockCardTitle">
                             <i class="fa-solid fa-circle-check text-success me-2"></i>Stok Barang Tersedia
                         </div>
-                        <span class="badge rounded-pill bg-success-subtle text-success-emphasis px-3 py-2">{{ $availableAssets->count() }} Items</span>
+                        <span id="publicStockCardBadge" class="badge rounded-pill bg-success-subtle text-success-emphasis px-3 py-2">{{ $availableAssets->count() }} Items</span>
                     </div>
 
-                    <div class="table-responsive public-stock-wrapper">
+                    <div class="table-responsive public-stock-wrapper" data-mode-table="borrow">
                         <table class="table align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
@@ -160,6 +160,62 @@
                                 @empty
                                     <tr>
                                         <td colspan="3" class="text-center text-muted py-4">Tidak ada stok tersedia saat ini.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="table-responsive public-stock-wrapper d-none" data-mode-table="return">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-secondary text-uppercase small">No</th>
+                                    <th class="text-secondary text-uppercase small">Peminjam</th>
+                                    <th class="text-secondary text-uppercase small">Barang Dipinjam</th>
+                                    <th class="text-secondary text-uppercase small">Tanggal Pinjam</th>
+                                    <th class="text-secondary text-uppercase small">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($activeLoans as $loan)
+                                    @php
+                                        $loanStatus = strtolower((string) $loan->status);
+                                        $loanStatusLabel = $loanStatus === 'overdue' ? 'Terlambat' : 'Dipinjam';
+                                        $loanStatusClass = $loanStatus === 'overdue'
+                                            ? 'bg-danger-subtle text-danger-emphasis'
+                                            : 'bg-warning-subtle text-warning-emphasis';
+                                    @endphp
+                                    <tr>
+                                        <td class="text-secondary">{{ $loop->iteration }}</td>
+                                        <td>
+                                            <div class="fw-semibold">{{ $loan->user?->name ?? '-' }}</div>
+                                            <div class="small text-secondary">
+                                                {{ $loan->user?->identity_number ?? '-' }}
+                                                @if(($loan->user?->kelas ?? '-') !== '-')
+                                                    · {{ $loan->user?->kelas }}
+                                                @endif
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold">{{ $loan->asset?->brand ?? '-' }}</div>
+                                            <div class="small text-secondary">{{ $loan->asset?->model ?? '-' }}</div>
+                                        </td>
+                                        <td>
+                                            @if($loan->loan_date)
+                                                <div>{{ $loan->loan_date->format('d/m/Y') }}</div>
+                                                <div class="small text-secondary">{{ $loan->loan_date->format('H:i') }} WIB</div>
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <span class="badge rounded-pill {{ $loanStatusClass }} px-3 py-2">{{ $loanStatusLabel }}</span>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-4">Tidak ada data barang dipinjam untuk mode public.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -438,8 +494,13 @@
         document.addEventListener('DOMContentLoaded', function () {
             var modeButtons = document.querySelectorAll('[data-target-mode]');
             var forms = document.querySelectorAll('[data-mode-form]');
+            var tables = document.querySelectorAll('[data-mode-table]');
             var title = document.getElementById('scanCardTitle');
             var scanHeader = document.getElementById('scanCardHeader');
+            var stockCardTitle = document.getElementById('publicStockCardTitle');
+            var stockCardBadge = document.getElementById('publicStockCardBadge');
+            var availableCount = @json($availableAssets->count());
+            var activeLoanCount = @json($activeLoans->count());
             var initialMode = @json($initialMode);
 
             function setMode(mode) {
@@ -451,10 +512,28 @@
                     form.classList.toggle('d-none', form.dataset.modeForm !== mode);
                 });
 
+                tables.forEach(function (table) {
+                    table.classList.toggle('d-none', table.dataset.modeTable !== mode);
+                });
+
                 if (title && scanHeader) {
                     title.textContent = mode === 'return' ? 'Scan Station Pengembalian' : 'Scan Station Peminjaman';
                     scanHeader.classList.toggle('bg-primary', mode !== 'return');
                     scanHeader.classList.toggle('bg-success', mode === 'return');
+                }
+
+                if (stockCardTitle) {
+                    stockCardTitle.innerHTML = mode === 'return'
+                        ? '<i class="fa-solid fa-right-left text-warning me-2"></i>Daftar Barang Dipinjam'
+                        : '<i class="fa-solid fa-circle-check text-success me-2"></i>Stok Barang Tersedia';
+                }
+
+                if (stockCardBadge) {
+                    stockCardBadge.textContent = (mode === 'return' ? activeLoanCount : availableCount) + ' Items';
+                    stockCardBadge.classList.toggle('bg-success-subtle', mode !== 'return');
+                    stockCardBadge.classList.toggle('text-success-emphasis', mode !== 'return');
+                    stockCardBadge.classList.toggle('bg-warning-subtle', mode === 'return');
+                    stockCardBadge.classList.toggle('text-warning-emphasis', mode === 'return');
                 }
             }
 

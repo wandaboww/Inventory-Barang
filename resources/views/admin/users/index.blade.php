@@ -6,6 +6,17 @@
             <h4 class="mb-1">Data Pengguna</h4>
             <p class="text-muted mb-0">Pengelolaan admin, guru, dan siswa.</p>
         </div>
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <a href="{{ route('admin.users.export', ['template' => 1]) }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-file-circle-plus me-1"></i>Template Excel
+            </a>
+            <a href="{{ route('admin.users.export') }}" class="btn btn-outline-success">
+                <i class="fa-solid fa-file-export me-1"></i>Export Excel
+            </a>
+            <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#importUserExcelModal">
+                <i class="fa-solid fa-file-import me-1"></i>Import Excel
+            </button>
+        </div>
     </div>
 
     <div class="row g-3">
@@ -188,4 +199,73 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="importUserExcelModal" tabindex="-1" aria-labelledby="importUserExcelModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="importUserExcelModalLabel">Import Data Pengguna dari Excel</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <form method="POST" action="{{ route('admin.users.import') }}" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="importUserExcelFile" class="form-label">File Excel <span class="text-danger">*</span></label>
+                            <input
+                                type="file"
+                                id="importUserExcelFile"
+                                name="excel_file"
+                                class="form-control @error('excel_file') is-invalid @enderror"
+                                accept=".xlsx,.xls,.csv"
+                                required
+                            >
+                            @error('excel_file')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <div class="form-text">Format yang didukung: XLSX, XLS, atau CSV. Maksimal 10 MB.</div>
+                        </div>
+
+                        <div class="alert alert-light border mb-0">
+                            <div class="fw-semibold mb-1">Header Excel harus sama dengan header tabel Data Pengguna:</div>
+                            <div class="small font-monospace">No | Identity | Nama | Kelas | No. HP | Role</div>
+                            <div class="small mt-2 mb-0">Formula impor: baris kosong atau baris yang tidak lengkap akan otomatis dilewati, sehingga proses import tetap lanjut ke baris berikutnya.</div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <a href="{{ route('admin.users.export', ['template' => 1]) }}" class="btn btn-outline-secondary">
+                            <i class="fa-solid fa-file-arrow-down me-2"></i>Download Template
+                        </a>
+                        <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa-solid fa-file-import me-2"></i>Proses Import
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 @endsection
+
+@push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var shouldOpenImportUserModal = @json($errors->has('excel_file'));
+
+            if (!shouldOpenImportUserModal) {
+                return;
+            }
+
+            var importUserExcelModalElement = document.getElementById('importUserExcelModal');
+
+            if (!importUserExcelModalElement) {
+                return;
+            }
+
+            var importUserExcelModal = new bootstrap.Modal(importUserExcelModalElement);
+            importUserExcelModal.show();
+        });
+    </script>
+@endpush

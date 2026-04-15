@@ -2,11 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\AssetsExport;
+use App\Imports\AssetsImport;
 use App\Models\Asset;
 use App\Services\AssetOptionService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 class AssetController extends Controller
 {
@@ -105,6 +111,42 @@ class AssetController extends Controller
                 'status' => (string) $request->input('status', ''),
             ],
         ]);
+    }
+
+    public function exportExcel(Request $request): BinaryFileResponse
+    {
+        $isTemplate = $request->boolean('template');
+        $assets = $isTemplate
+            ? collect()
+            : Asset::query()->latest('id')->get();
+
+        $fileNamePrefix = $isTemplate ? 'template-import-data-barang' : 'data-barang';
+        $fileName = $fileNamePrefix . '-' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new AssetsExport($assets), $fileName);
+    }
+
+    public function importExcel(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'excel_file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:10240'],
+        ]);
+
+        $import = new AssetsImport($this->assetOptionService);
+
+        try {
+            Excel::import($import, $validated['excel_file']);
+        } catch (Throwable) {
+            return redirect()->route('admin.assets.index')
+                ->with('error', 'Import Excel gagal. Pastikan format file dan header sesuai template.');
+        }
+
+        return redirect()->route('admin.assets.index')->with(
+            'success',
+            'Import Excel selesai. Ditambahkan: ' . $import->getCreatedCount()
+                . ', Diperbarui: ' . $import->getUpdatedCount()
+                . ', Dilewati: ' . $import->getSkippedCount() . '.'
+        );
     }
 
     public function store(Request $request)

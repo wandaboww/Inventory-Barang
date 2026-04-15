@@ -10,9 +10,20 @@
             <h4 class="mb-1">Data Barang</h4>
             <p class="text-muted mb-0">Manajemen aset inventaris sekolah dengan filter, ringkasan kategori, dan kontrol data terpusat.</p>
         </div>
-        <button type="button" class="btn btn-primary btn-lg shadow-sm asset-primary-action" data-bs-toggle="modal" data-bs-target="#createAssetModal">
-            <i class="fa-solid fa-plus me-2"></i>Tambah Barang
-        </button>
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <a href="{{ route('admin.assets.export', ['template' => 1]) }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-file-circle-plus me-1"></i>Template Excel
+            </a>
+            <a href="{{ route('admin.assets.export') }}" class="btn btn-outline-success">
+                <i class="fa-solid fa-file-export me-1"></i>Export Excel
+            </a>
+            <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#importAssetExcelModal">
+                <i class="fa-solid fa-file-import me-1"></i>Import Excel
+            </button>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createAssetModal">
+                <i class="fa-solid fa-plus me-1"></i>Tambah Barang
+            </button>
+        </div>
     </div>
 
     <div class="row g-3 mb-3">
@@ -483,6 +494,54 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="importAssetExcelModal" tabindex="-1" aria-labelledby="importAssetExcelModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header asset-modal-header">
+                    <h5 class="modal-title" id="importAssetExcelModalLabel">Import Data Barang dari Excel</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <form method="POST" action="{{ route('admin.assets.import') }}" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="importAssetExcelFile" class="form-label">File Excel <span class="text-danger">*</span></label>
+                            <input
+                                type="file"
+                                id="importAssetExcelFile"
+                                name="excel_file"
+                                class="form-control @error('excel_file') is-invalid @enderror"
+                                accept=".xlsx,.xls,.csv"
+                                required
+                            >
+                            @error('excel_file')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <div class="form-text">Format yang didukung: XLSX, XLS, atau CSV. Maksimal 10 MB.</div>
+                        </div>
+
+                        <div class="alert alert-light border mb-0">
+                            <div class="fw-semibold mb-1">Header Excel harus sama dengan header tabel Data Barang:</div>
+                            <div class="small font-monospace">No | Kategori | Merk | MODEL / TYPE / SERI | Serial Number | Kode Barcode | Barcode Batang | Status | Kondisi</div>
+                            <div class="small mt-2 mb-0">Formula impor: baris kosong atau baris yang tidak lengkap akan otomatis dilewati, sehingga proses import tetap lanjut ke baris berikutnya.</div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <a href="{{ route('admin.assets.export', ['template' => 1]) }}" class="btn btn-outline-secondary">
+                            <i class="fa-solid fa-file-arrow-down me-2"></i>Download Template
+                        </a>
+                        <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa-solid fa-file-import me-2"></i>Proses Import
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('styles')
@@ -505,12 +564,6 @@
         .asset-page-shell > .mb-3,
         .asset-page-shell > .row.mb-3 {
             margin-bottom: 0 !important;
-        }
-
-        .asset-primary-action {
-            border-radius: 0.8rem;
-            font-weight: 700;
-            padding-inline: 1.1rem;
         }
 
         .asset-stat-card,
@@ -754,6 +807,7 @@
             'condition',
         ]);
         $shouldOpenCreateAssetModal = $hasAssetFormErrors && !$editingAssetId;
+        $hasImportExcelErrors = $errors->has('excel_file');
     @endphp
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     <script>
@@ -1027,6 +1081,7 @@
 
             var shouldOpenCreateAssetModal = @json($shouldOpenCreateAssetModal);
             var editingAssetId = @json($editingAssetId);
+            var shouldOpenImportAssetModal = @json($hasImportExcelErrors);
 
             if (editingAssetId) {
                 var editAssetModalElement = document.getElementById('editAssetModal' + editingAssetId);
@@ -1034,6 +1089,16 @@
                 if (editAssetModalElement) {
                     var editAssetModal = new bootstrap.Modal(editAssetModalElement);
                     editAssetModal.show();
+                    return;
+                }
+            }
+
+            if (shouldOpenImportAssetModal) {
+                var importAssetExcelModalElement = document.getElementById('importAssetExcelModal');
+
+                if (importAssetExcelModalElement) {
+                    var importAssetExcelModal = new bootstrap.Modal(importAssetExcelModalElement);
+                    importAssetExcelModal.show();
                     return;
                 }
             }

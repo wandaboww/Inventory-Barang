@@ -95,10 +95,11 @@ class DashboardController extends Controller
                 'asset:id,brand,model',
             ])
             ->whereIn('status', ['active', 'overdue'])
+            ->whereHas('user', function ($query): void {
+                $query->where('role', '!=', 'teacher');
+            })
             ->latest('loan_date')
-            ->get()
-            ->filter(fn (Loan $loan) => strtolower((string) ($loan->user?->role ?? 'student')) !== 'teacher')
-            ->values();
+            ->get();
 
         return view('dashboard.public', [
             'availableAssets' => $availableAssets,

@@ -2,10 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\UsersExport;
+use App\Imports\UsersImport;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 class UserController extends Controller
 {
@@ -42,6 +48,42 @@ class UserController extends Controller
                 'kelas' => (string) $request->input('kelas', ''),
             ],
         ]);
+    }
+
+    public function exportExcel(Request $request): BinaryFileResponse
+    {
+        $isTemplate = $request->boolean('template');
+        $users = $isTemplate
+            ? collect()
+            : User::query()->latest('id')->get();
+
+        $fileNamePrefix = $isTemplate ? 'template-import-data-pengguna' : 'data-pengguna';
+        $fileName = $fileNamePrefix . '-' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new UsersExport($users), $fileName);
+    }
+
+    public function importExcel(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'excel_file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:10240'],
+        ]);
+
+        $import = new UsersImport();
+
+        try {
+            Excel::import($import, $validated['excel_file']);
+        } catch (Throwable) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'Import Excel gagal. Pastikan format file dan header sesuai template.');
+        }
+
+        return redirect()->route('admin.users.index')->with(
+            'success',
+            'Import Excel selesai. Ditambahkan: ' . $import->getCreatedCount()
+                . ', Diperbarui: ' . $import->getUpdatedCount()
+                . ', Dilewati: ' . $import->getSkippedCount() . '.'
+        );
     }
 
     public function store(Request $request)

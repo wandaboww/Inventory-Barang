@@ -17,7 +17,11 @@ Route::get('/admin/dashboard', [DashboardController::class, 'adminIndex'])->midd
 Route::prefix('admin')->name('admin.')->group(function (): void {
     Route::middleware('admin.access')->group(function (): void {
         Route::resource('assets', AssetController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::get('assets/export-excel', [AssetController::class, 'exportExcel'])->name('assets.export');
+        Route::post('assets/import-excel', [AssetController::class, 'importExcel'])->name('assets.import');
         Route::resource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::get('users/export-excel', [UserController::class, 'exportExcel'])->name('users.export');
+        Route::post('users/import-excel', [UserController::class, 'importExcel'])->name('users.import');
 
         Route::get('loans', [LoanController::class, 'index'])->name('loans.index');
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
