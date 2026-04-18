@@ -23,7 +23,7 @@
                             <span class="small fw-bold text-dark">{{ $summary['face_completion_rate'] }}%</span>
                         </div>
                         <div class="progress user-summary-progress" role="progressbar" aria-label="Kelengkapan data wajah">
-                            <div class="progress-bar bg-success" style="width: {{ $summary['face_completion_rate'] }}%"></div>
+                            <div class="progress-bar bg-white" style="width: {{ $summary['face_completion_rate'] }}%"></div>
                         </div>
                     </div>
                 </div>

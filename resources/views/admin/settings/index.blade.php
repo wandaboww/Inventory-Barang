@@ -68,7 +68,7 @@
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link settings-tab-btn {{ $activeTab === 'menu-b' ? 'active' : '' }}" id="tab-menu-b-link" data-bs-toggle="tab" data-bs-target="#tab-menu-b" type="button" role="tab" aria-controls="tab-menu-b" aria-selected="{{ $activeTab === 'menu-b' ? 'true' : 'false' }}">
-                        Menu B
+                        Dashboard
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -301,7 +301,7 @@
 
                         <div class="col-12 d-flex flex-wrap gap-2">
                             <button type="submit" class="btn btn-primary">
-                                <i class="fa-solid fa-floppy-disk me-2"></i>Simpan Menu B
+                                <i class="fa-solid fa-floppy-disk me-2"></i>Simpan Dashboard
                             </button>
                             <a href="{{ route('dashboard.public') }}" class="btn btn-outline-secondary" target="_blank" rel="noopener noreferrer">
                                 <i class="fa-solid fa-up-right-from-square me-2"></i>Buka Dashboard Public

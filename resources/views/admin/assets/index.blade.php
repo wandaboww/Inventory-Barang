@@ -225,12 +225,12 @@
                             <h5 class="modal-title" id="editAssetModalLabel{{ $asset->id }}">Edit Barang</h5>
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
-                        <form method="POST" action="{{ route('admin.assets.update', $asset) }}" class="row g-0">
+                        <form method="POST" action="{{ route('admin.assets.update', $asset) }}" class="d-flex flex-column" style="min-height:0; flex:1 1 auto;">
                             @csrf
                             @method('PUT')
                             <input type="hidden" name="editing_asset_id" value="{{ $asset->id }}">
 
-                            <div class="modal-body">
+                            <div class="modal-body" style="overflow-y:auto;">
                                 <div class="row g-3">
                                     <div class="col-12">
                                         <label class="form-label">Kategori</label>
@@ -307,27 +307,31 @@
                                     </div>
 
                                     <div class="col-12">
-                                        <label class="form-label">Status</label>
-                                        <select name="status" class="form-select @error('status') is-invalid @enderror" required>
-                                            @foreach($allStatuses as $status)
-                                                <option value="{{ $status }}" @selected($editStatus === $status)>{{ $formatOptionLabel($status) }}</option>
-                                            @endforeach
-                                        </select>
-                                        @error('status')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label class="form-label">Status</label>
+                                                <select name="status" class="form-select @error('status') is-invalid @enderror" required>
+                                                    @foreach($allStatuses as $status)
+                                                        <option value="{{ $status }}" @selected($editStatus === $status)>{{ $formatOptionLabel($status) }}</option>
+                                                    @endforeach
+                                                </select>
+                                                @error('status')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
 
-                                    <div class="col-12">
-                                        <label class="form-label">Kondisi</label>
-                                        <select name="condition" class="form-select @error('condition') is-invalid @enderror" required>
-                                            @foreach($allConditions as $condition)
-                                                <option value="{{ $condition }}" @selected($editCondition === $condition)>{{ $formatOptionLabel($condition) }}</option>
-                                            @endforeach
-                                        </select>
-                                        @error('condition')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
+                                            <div class="col-12 col-md-6">
+                                                <label class="form-label">Kondisi</label>
+                                                <select name="condition" class="form-select @error('condition') is-invalid @enderror" required>
+                                                    @foreach($allConditions as $condition)
+                                                        <option value="{{ $condition }}" @selected($editCondition === $condition)>{{ $formatOptionLabel($condition) }}</option>
+                                                    @endforeach
+                                                </select>
+                                                @error('condition')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -357,9 +361,9 @@
                     <h5 class="modal-title" id="createAssetModalLabel">Tambah Barang Baru</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" action="{{ route('admin.assets.store') }}" class="row g-0">
+                <form method="POST" action="{{ route('admin.assets.store') }}" class="d-flex flex-column" style="min-height:0; flex:1 1 auto;">
                     @csrf
-                    <div class="modal-body">
+                    <div class="modal-body" style="overflow-y:auto;">
                         <div class="row g-3">
                             <div class="col-12">
                                 <label class="form-label">Kategori</label>
@@ -502,10 +506,9 @@
                     <h5 class="modal-title" id="importAssetExcelModalLabel">Import Data Barang dari Excel</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-
-                <form method="POST" action="{{ route('admin.assets.import') }}" enctype="multipart/form-data">
+                <form method="POST" action="{{ route('admin.assets.import') }}" enctype="multipart/form-data" class="d-flex flex-column" style="min-height:0; flex:1 1 auto;">
                     @csrf
-                    <div class="modal-body">
+                    <div class="modal-body" style="overflow-y:auto;">
                         <div class="mb-3">
                             <label for="importAssetExcelFile" class="form-label">File Excel <span class="text-danger">*</span></label>
                             <input
