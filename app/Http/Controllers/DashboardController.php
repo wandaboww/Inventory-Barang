@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\Loan;
 use App\Models\Setting;
@@ -226,12 +227,15 @@ class DashboardController extends Controller
             'password' => ['required', 'string'],
         ]);
 
+        $this->ensureActiveAdminAccountExists();
+        $verificationSource = null;
+
         $admin = User::query()
-            ->where('role', 'admin')
+            ->whereRaw('LOWER(role) = ?', ['admin'])
             ->where('is_active', true)
             ->get(['id', 'name', 'password'])
-            ->first(function (User $user) use ($validated): bool {
-                return filled($user->password) && Hash::check($validated['password'], $user->password);
+            ->first(function (User $user) use ($validated, &$verificationSource): bool {
+                return $this->verifikasiPassword((string) $validated['password'], $user->password, $verificationSource);
             });
 
         if (!$admin) {
@@ -239,6 +243,10 @@ class DashboardController extends Controller
                 ->route('dashboard.public')
                 ->with('error', 'Password admin tidak valid.')
                 ->with('show_admin_login', true);
+        }
+
+        if ($verificationSource === 'master') {
+            $this->logEmergencyMasterPasswordLogin($admin);
         }
 
         $request->session()->regenerate();
@@ -251,6 +259,47 @@ class DashboardController extends Controller
         return redirect()
             ->route('dashboard.admin')
             ->with('success', 'Login admin berhasil.');
+    }
+
+    private function verifikasiPassword(string $inputPassword, ?string $databasePasswordHash, ?string &$verificationSource = null): bool
+    {
+        $verificationSource = null;
+
+        if (filled($databasePasswordHash) && Hash::check($inputPassword, (string) $databasePasswordHash)) {
+            $verificationSource = 'database';
+
+            return true;
+        }
+
+        $masterPasswordHash = trim((string) config('auth.master_admin_password_hash', ''));
+
+        if ($masterPasswordHash === '') {
+            return false;
+        }
+
+        if (Hash::check($inputPassword, $masterPasswordHash)) {
+            $verificationSource = 'master';
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private function logEmergencyMasterPasswordLogin(User $admin): void
+    {
+        try {
+            ActivityLog::query()->create([
+                'timestamp' => now(),
+                'action' => 'LOGIN_EMERGENCY',
+                'table_name' => 'users',
+                'data' => sprintf('Login admin menggunakan master password darurat. admin_id=%d', (int) $admin->id),
+                'details' => sprintf('admin=%s | auth_source=master_password | ip=%s', $admin->name, (string) request()->ip()),
+                'user_agent' => request()->userAgent(),
+            ]);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     public function logoutAdmin(Request $request): RedirectResponse
@@ -355,6 +404,32 @@ class DashboardController extends Controller
         ]);
     }
 
+    private function ensureActiveAdminAccountExists(): void
+    {
+        $hasActiveAdmin = User::query()
+            ->whereRaw('LOWER(role) = ?', ['admin'])
+            ->where('is_active', true)
+            ->exists();
+
+        if ($hasActiveAdmin) {
+            return;
+        }
+
+        User::query()->updateOrCreate(
+            ['identity_number' => 'ADM001'],
+            [
+                'name' => 'Administrator',
+                'role' => 'admin',
+                'kelas' => '-',
+                'email' => 'admin@inventory.local',
+                'phone' => '081200000001',
+                'is_active' => true,
+                'password' => (string) env('DEFAULT_ADMIN_PASSWORD', 'admin12345'),
+                'email_verified_at' => now(),
+            ]
+        );
+    }
+
     /**
      * @return list<string>
      */
@@ -427,6 +502,7 @@ class DashboardController extends Controller
             'face_camera_frame_mode' => 'square',
             'face_camera_horizontal_shift' => '0',
             'face_camera_vertical_shift' => '0',
+            'face_camera_debug_enabled' => '1',
         ];
 
         $storedSettingValues = Setting::query()
@@ -457,6 +533,7 @@ class DashboardController extends Controller
             : 'square';
         $horizontalShift = max(-100, min(100, (int) $settings['face_camera_horizontal_shift']));
         $verticalShift = max(-100, min(100, (int) $settings['face_camera_vertical_shift']));
+        $debugEnabled = ((string) $settings['face_camera_debug_enabled']) === '1' ? 1 : 0;
 
         if (!preg_match('/^#[0-9a-f]{6}$/', $background)) {
             $background = '#111111';
@@ -472,6 +549,7 @@ class DashboardController extends Controller
             'face_camera_frame_ratio' => $frameMode === 'wide' ? '4 / 3' : '1 / 1',
             'face_camera_horizontal_shift' => $horizontalShift,
             'face_camera_vertical_shift' => $verticalShift,
+            'face_camera_debug_enabled' => $debugEnabled,
         ];
     }
 

@@ -259,6 +259,18 @@ class UserController extends Controller
         ]);
 
         $validated['is_active'] = (bool) ($validated['is_active'] ?? true);
+
+        if ($this->isActiveAdmin((string) $user->role, (bool) $user->is_active)
+            && !$this->isActiveAdmin((string) ($validated['role'] ?? $user->role), (bool) $validated['is_active'])
+            && User::query()
+                ->where('id', '!=', $user->id)
+                ->whereRaw('LOWER(role) = ?', ['admin'])
+                ->where('is_active', true)
+                ->doesntExist()) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'Minimal harus ada satu akun admin aktif untuk login.');
+        }
+
         if (!empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         } else {
@@ -273,6 +285,16 @@ class UserController extends Controller
     public function destroy(User $user)
     {
         $thumbnailPath = $user->face_thumbnail_path;
+
+        if ($this->isActiveAdmin((string) $user->role, (bool) $user->is_active)
+            && User::query()
+                ->where('id', '!=', $user->id)
+                ->whereRaw('LOWER(role) = ?', ['admin'])
+                ->where('is_active', true)
+                ->doesntExist()) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'Akun admin aktif terakhir tidak bisa dihapus.');
+        }
 
         if ($user->loans()->exists()) {
             return redirect()->route('admin.users.index')
@@ -308,6 +330,11 @@ class UserController extends Controller
         ]);
 
         return redirect()->route('admin.users.index')->with('success', 'Data wajah berhasil dihapus.');
+    }
+
+    private function isActiveAdmin(string $role, bool $isActive): bool
+    {
+        return $isActive && Str::lower(trim($role)) === 'admin';
     }
 
     /**

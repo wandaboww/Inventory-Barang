@@ -47,7 +47,11 @@ class PublicDashboardLoanVisibilityTest extends TestCase
 
         $this->get(route('dashboard.public'))
             ->assertOk()
+            ->assertSee('borrowFaceOverlay')
+            ->assertSee('borrowFaceDebugPanel')
             ->assertSee('Identitas Pengembali (Face Recognition)')
+            ->assertSee('returnFaceOverlay')
+            ->assertSee('returnFaceDebugPanel')
             ->assertSee('returnFaceVideo')
             ->assertSee('returnFaceStatusBadge')
             ->assertSee('returnSubmitButton')
@@ -97,11 +101,16 @@ class PublicDashboardLoanVisibilityTest extends TestCase
             ->orderBy('id')
             ->firstOrFail();
 
-        $targetStudent = User::query()
-            ->where('role', 'student')
-            ->where('id', '!=', $sourceStudent->id)
-            ->orderBy('id')
-            ->firstOrFail();
+        $targetStudent = User::query()->create([
+            'name' => 'Siswa Uji Duplikat Wajah',
+            'identity_number' => 'TEST-DUP-' . uniqid(),
+            'role' => 'student',
+            'kelas' => '10 PPLG 2',
+            'email' => 'dup-face-' . uniqid() . '@example.test',
+            'phone' => '081234560099',
+            'is_active' => true,
+            'password' => 'password123',
+        ]);
 
         $duplicateEncoding = array_fill(0, 128, 0.234567);
 
@@ -237,8 +246,8 @@ class PublicDashboardLoanVisibilityTest extends TestCase
             ],
         ])->get(route('dashboard.admin'))
             ->assertOk()
-            ->assertSee('Stok Barang tersedia')
-            ->assertSee('Barang sedang dipinjam')
+            ->assertSee('Stok Barang Tersedia')
+            ->assertSee('Barang Sedang Dipinjam')
             ->assertSeeInOrder(['Peminjam', 'Serial Number', 'Kode Barcode'])
             ->assertSee('Serial Number')
             ->assertSee('Kode Barcode')

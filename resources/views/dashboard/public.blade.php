@@ -24,7 +24,9 @@
             'face_camera_frame_mode' => 'square',
             'face_camera_horizontal_shift' => 0,
             'face_camera_vertical_shift' => 0,
+            'face_camera_debug_enabled' => 1,
         ];
+        $faceDebugEnabled = ((int) ($faceCameraSettings['face_camera_debug_enabled'] ?? 1)) === 1;
         $faceCameraFrameRatio = ($faceCameraSettings['face_camera_frame_mode'] ?? 'square') === 'wide' ? '4 / 3' : '1 / 1';
         $faceCameraShellStyle = sprintf(
             '--face-camera-preview-size: %dpx; --face-camera-border-radius: %dpx; --face-camera-background: %s; --face-camera-object-fit: %s; --face-camera-frame-ratio: %s; --face-camera-horizontal-shift: %d%%; --face-camera-vertical-shift: %d%%;',
@@ -101,6 +103,7 @@
                                 </div>
                                 <div class="borrow-face-camera-shell border rounded-3 overflow-hidden" style="{{ $faceCameraShellStyle }}">
                                     <video id="borrowFaceVideo" class="w-100" autoplay playsinline muted></video>
+                                    <canvas id="borrowFaceOverlay" class="face-detection-overlay" aria-hidden="true"></canvas>
                                 </div>
                                 <canvas id="borrowFaceCanvas" class="d-none"></canvas>
                                 <div class="small text-muted mt-2">Kamera aktif otomatis. Pastikan hanya satu wajah terlihat jelas di frame.</div>
@@ -108,6 +111,9 @@
                                     Wajah belum dikenali.
                                 </div>
                                 <div id="borrowRecognizedUser" class="small text-dark fw-semibold">-</div>
+                                @if($faceDebugEnabled)
+                                    <div id="borrowFaceDebugPanel" class="face-debug-panel" aria-live="polite">Debug: menunggu frame pertama...</div>
+                                @endif
                                 <button type="button" id="borrowFaceRescanBtn" class="btn btn-sm btn-outline-secondary mt-2">
                                     <i class="fa-solid fa-rotate me-1"></i>Scan Ulang Wajah
                                 </button>
@@ -141,6 +147,7 @@
                                 </div>
                                 <div class="return-face-camera-shell border rounded-3 overflow-hidden" style="{{ $faceCameraShellStyle }}">
                                     <video id="returnFaceVideo" class="w-100" autoplay playsinline muted></video>
+                                    <canvas id="returnFaceOverlay" class="face-detection-overlay" aria-hidden="true"></canvas>
                                 </div>
                                 <canvas id="returnFaceCanvas" class="d-none"></canvas>
                                 <div class="small text-muted mt-2">Kamera aktif otomatis. Pastikan hanya satu wajah terlihat jelas di frame.</div>
@@ -148,6 +155,9 @@
                                     Wajah belum dikenali.
                                 </div>
                                 <div id="returnRecognizedUser" class="small text-dark fw-semibold">-</div>
+                                @if($faceDebugEnabled)
+                                    <div id="returnFaceDebugPanel" class="face-debug-panel" aria-live="polite">Debug: menunggu frame pertama...</div>
+                                @endif
                                 <button type="button" id="returnFaceRescanBtn" class="btn btn-sm btn-outline-secondary mt-2">
                                     <i class="fa-solid fa-rotate me-1"></i>Scan Ulang Wajah
                                 </button>
@@ -676,6 +686,30 @@
             object-position: calc(50% + var(--face-camera-horizontal-shift, 0%)) calc(50% + var(--face-camera-vertical-shift, 0%));
             display: block;
             background: var(--face-camera-background, #111111);
+            z-index: 1;
+        }
+
+        .face-detection-overlay {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .face-debug-panel {
+            margin-top: 0.5rem;
+            padding: 0.4rem 0.55rem;
+            border-radius: 0.5rem;
+            border: 1px dashed #cfd9e8;
+            background: #f8fafd;
+            color: #465468;
+            font-size: 0.72rem;
+            line-height: 1.35;
+            font-family: Consolas, Monaco, 'Courier New', monospace;
+            word-break: break-word;
         }
 
         .public-reminder-banner {
@@ -829,9 +863,11 @@
                     submitButton: document.getElementById('borrowSubmitButton'),
                     video: document.getElementById('borrowFaceVideo'),
                     canvas: document.getElementById('borrowFaceCanvas'),
+                    overlay: document.getElementById('borrowFaceOverlay'),
                     result: document.getElementById('borrowFaceResult'),
                     statusBadge: document.getElementById('borrowFaceStatusBadge'),
                     recognizedUser: document.getElementById('borrowRecognizedUser'),
+                    debugPanel: document.getElementById('borrowFaceDebugPanel'),
                     rescanButton: document.getElementById('borrowFaceRescanBtn'),
                 },
                 return: {
@@ -839,9 +875,11 @@
                     submitButton: document.getElementById('returnSubmitButton'),
                     video: document.getElementById('returnFaceVideo'),
                     canvas: document.getElementById('returnFaceCanvas'),
+                    overlay: document.getElementById('returnFaceOverlay'),
                     result: document.getElementById('returnFaceResult'),
                     statusBadge: document.getElementById('returnFaceStatusBadge'),
                     recognizedUser: document.getElementById('returnRecognizedUser'),
+                    debugPanel: document.getElementById('returnFaceDebugPanel'),
                     rescanButton: document.getElementById('returnFaceRescanBtn'),
                 }
             };
@@ -854,6 +892,10 @@
                 locked: {
                     borrow: false,
                     return: false,
+                },
+                noFaceStreak: {
+                    borrow: 0,
+                    return: 0,
                 }
             };
 
@@ -861,6 +903,7 @@
             var FACE_CAMERA_FRAME_MODE = @json((string) ($faceCameraSettings['face_camera_frame_mode'] ?? 'square'));
             var FACE_CAMERA_HORIZONTAL_SHIFT = @json((int) ($faceCameraSettings['face_camera_horizontal_shift'] ?? 0));
             var FACE_CAMERA_VERTICAL_SHIFT = @json((int) ($faceCameraSettings['face_camera_vertical_shift'] ?? 0));
+            var FACE_DEBUG_ENABLED = @json($faceDebugEnabled);
 
             function getFaceCameraFrameRatio() {
                 return FACE_CAMERA_FRAME_MODE === 'wide' ? 4 / 3 : 1;
@@ -897,6 +940,213 @@
                 return faceModes[mode] || faceModes.borrow;
             }
 
+            function formatFaceDebugNumber(value, decimals, fallbackText) {
+                var numericValue = Number(value);
+
+                if (!Number.isFinite(numericValue)) {
+                    return fallbackText || '-';
+                }
+
+                return numericValue.toFixed(decimals);
+            }
+
+            function setFaceDebugMessage(mode, message) {
+                if (!FACE_DEBUG_ENABLED) {
+                    return;
+                }
+
+                var elements = getFaceElements(mode);
+
+                if (!elements.debugPanel) {
+                    return;
+                }
+
+                elements.debugPanel.textContent = message || 'Debug: -';
+            }
+
+            function updateFaceDebugPanel(mode, phase, captureResult, serverPayload) {
+                if (!FACE_DEBUG_ENABLED) {
+                    return;
+                }
+
+                var elements = getFaceElements(mode);
+
+                if (!elements.debugPanel) {
+                    return;
+                }
+
+                var debugInfo = captureResult && captureResult.debug ? captureResult.debug : {};
+                var status = captureResult && captureResult.status ? captureResult.status : 'n/a';
+                var pass = debugInfo.pass || 'primary';
+                var facesDetected = Number.isFinite(Number(debugInfo.facesDetected))
+                    ? Math.max(0, Math.round(Number(debugInfo.facesDetected)))
+                    : (captureResult && Array.isArray(captureResult.detectedBoxes) ? captureResult.detectedBoxes.length : 0);
+                var detectorInputSize = Number.isFinite(Number(debugInfo.detectorInputSize))
+                    ? String(Math.round(Number(debugInfo.detectorInputSize)))
+                    : '-';
+                var scoreThreshold = formatFaceDebugNumber(debugInfo.scoreThreshold, 2, '-');
+                var maxScore = formatFaceDebugNumber(debugInfo.maxScore, 3, '-');
+                var processingMs = formatFaceDebugNumber(debugInfo.processingMs, 1, '-');
+                var fallbackLabel = '';
+
+                if (debugInfo.fallbackTried) {
+                    var fallbackInputSize = Number.isFinite(Number(debugInfo.fallbackDetectorInputSize))
+                        ? String(Math.round(Number(debugInfo.fallbackDetectorInputSize)))
+                        : '-';
+                    var fallbackThreshold = formatFaceDebugNumber(debugInfo.fallbackScoreThreshold, 2, '-');
+                    fallbackLabel = ' fallback=' + fallbackInputSize + '@' + fallbackThreshold;
+                }
+
+                var serverLabel = '';
+
+                if (serverPayload && serverPayload.status) {
+                    serverLabel = ' server=' + serverPayload.status;
+
+                    if (Number.isFinite(Number(serverPayload.confidenceScore))) {
+                        serverLabel += ' conf=' + formatFaceDebugNumber(serverPayload.confidenceScore, 4, '-');
+                    }
+                }
+
+                var timestamp = new Date().toLocaleTimeString('id-ID', { hour12: false });
+                elements.debugPanel.textContent = '[' + timestamp + ']'
+                    + ' phase=' + (phase || 'capture')
+                    + ' status=' + status
+                    + ' faces=' + facesDetected
+                    + ' score=' + maxScore
+                    + ' detector=' + pass + ':' + detectorInputSize + '@' + scoreThreshold
+                    + ' t=' + processingMs + 'ms'
+                    + fallbackLabel
+                    + serverLabel;
+            }
+
+            function clearFaceBoundingBoxes(mode) {
+                var elements = getFaceElements(mode);
+
+                if (!elements.overlay) {
+                    return;
+                }
+
+                var overlayContext = elements.overlay.getContext('2d');
+
+                if (!overlayContext) {
+                    return;
+                }
+
+                overlayContext.clearRect(0, 0, elements.overlay.width, elements.overlay.height);
+            }
+
+            function getFaceBoxStrokeByStatus(status) {
+                if (status === 'ok') {
+                    return '#22c55e';
+                }
+
+                if (status === 'multiple_faces') {
+                    return '#f59e0b';
+                }
+
+                return '#ef4444';
+            }
+
+            function drawFaceScanningGuide(context, canvasWidth, canvasHeight, status) {
+                if (!context || canvasWidth <= 0 || canvasHeight <= 0) {
+                    return;
+                }
+
+                var guideWidth = canvasWidth * 0.56;
+                var guideHeight = canvasHeight * 0.72;
+                var guideLeft = (canvasWidth - guideWidth) / 2;
+                var guideTop = (canvasHeight - guideHeight) / 2;
+                var guideStroke = status === 'invalid_descriptor' ? '#ef4444' : 'rgba(255, 255, 255, 0.82)';
+
+                context.save();
+                context.lineWidth = Math.max(2, Math.round(canvasWidth * 0.008));
+                context.strokeStyle = guideStroke;
+                context.setLineDash([12, 10]);
+                context.strokeRect(guideLeft, guideTop, guideWidth, guideHeight);
+                context.restore();
+            }
+
+            function drawFaceBoundingBoxes(mode, captureResult) {
+                var elements = getFaceElements(mode);
+                var detectedBoxes = captureResult && Array.isArray(captureResult.detectedBoxes) ? captureResult.detectedBoxes : [];
+
+                if (!elements.overlay) {
+                    return;
+                }
+
+                if (!captureResult || !captureResult.captureDimensions) {
+                    clearFaceBoundingBoxes(mode);
+
+                    return;
+                }
+
+                var overlayCanvas = elements.overlay;
+                var overlayContext = overlayCanvas.getContext('2d');
+
+                if (!overlayContext) {
+                    return;
+                }
+
+                var captureWidth = Math.max(1, Math.round(Number(captureResult.captureDimensions.width) || 1));
+                var captureHeight = Math.max(1, Math.round(Number(captureResult.captureDimensions.height) || 1));
+                var overlayDisplayWidth = Math.max(1, Math.round(overlayCanvas.clientWidth || captureWidth));
+                var overlayDisplayHeight = Math.max(1, Math.round(overlayCanvas.clientHeight || captureHeight));
+                var devicePixelRatio = Math.max(1, Number(window.devicePixelRatio) || 1);
+                var overlayTargetWidth = Math.max(1, Math.round(overlayDisplayWidth * devicePixelRatio));
+                var overlayTargetHeight = Math.max(1, Math.round(overlayDisplayHeight * devicePixelRatio));
+
+                if (overlayCanvas.width !== overlayTargetWidth || overlayCanvas.height !== overlayTargetHeight) {
+                    overlayCanvas.width = overlayTargetWidth;
+                    overlayCanvas.height = overlayTargetHeight;
+                }
+
+                var scaleX = overlayCanvas.width / captureWidth;
+                var scaleY = overlayCanvas.height / captureHeight;
+
+                overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+                if (!detectedBoxes.length) {
+                    drawFaceScanningGuide(overlayContext, overlayCanvas.width, overlayCanvas.height, captureResult.status);
+
+                    return;
+                }
+
+                var strokeStyle = getFaceBoxStrokeByStatus(captureResult.status);
+
+                detectedBoxes.forEach(function (box) {
+                    var left = Number(box.x);
+                    var top = Number(box.y);
+                    var width = Number(box.width);
+                    var height = Number(box.height);
+
+                    if (!Number.isFinite(left) || !Number.isFinite(top) || !Number.isFinite(width) || !Number.isFinite(height)) {
+                        return;
+                    }
+
+                    if (width <= 1 && height <= 1) {
+                        left = left * captureWidth;
+                        top = top * captureHeight;
+                        width = width * captureWidth;
+                        height = height * captureHeight;
+                    }
+
+                    left = left * scaleX;
+                    top = top * scaleY;
+                    width = width * scaleX;
+                    height = height * scaleY;
+
+                    left = Math.max(0, Math.min(overlayCanvas.width, left));
+                    top = Math.max(0, Math.min(overlayCanvas.height, top));
+                    width = Math.max(1, Math.min(overlayCanvas.width - left, width));
+                    height = Math.max(1, Math.min(overlayCanvas.height - top, height));
+
+                    overlayContext.lineWidth = Math.max(2, Math.round(overlayCanvas.width * 0.009));
+                    overlayContext.strokeStyle = strokeStyle;
+                    overlayContext.setLineDash([]);
+                    overlayContext.strokeRect(left, top, width, height);
+                });
+            }
+
             function stopFaceCamera() {
                 if (faceRecognitionState.intervalId) {
                     window.clearInterval(faceRecognitionState.intervalId);
@@ -917,7 +1167,15 @@
                     if (currentElements.video) {
                         currentElements.video.srcObject = null;
                     }
+
+                    clearFaceBoundingBoxes(faceRecognitionState.mode);
+                    setFaceDebugMessage(faceRecognitionState.mode, 'Debug: kamera dihentikan.');
                 }
+
+                clearFaceBoundingBoxes('borrow');
+                clearFaceBoundingBoxes('return');
+                setFaceDebugMessage('borrow', 'Debug: kamera berhenti.');
+                setFaceDebugMessage('return', 'Debug: kamera berhenti.');
 
                 faceRecognitionState.mode = null;
                 faceRecognitionState.isRecognitionRequestRunning = false;
@@ -1048,6 +1306,7 @@
                 var elements = getFaceElements(mode);
 
                 if (!window.InventoryFaceRecognition || !elements.video || !elements.canvas) {
+                    setFaceDebugMessage(mode, 'Debug: library face recognition belum siap.');
                     clearRecognizedUser(mode, 'Library face recognition belum siap.', 'alert-danger');
 
                     return;
@@ -1066,17 +1325,34 @@
                         verticalShift: FACE_CAMERA_VERTICAL_SHIFT,
                         includeImage: false,
                         detectorInputSize: 416,
+                        scoreThreshold: 0.5,
+                        fallbackDetectorInputSize: 320,
+                        fallbackScoreThreshold: 0.35,
+                        enableFallbackDetection: true,
                     });
 
                     if (requestMode !== faceRecognitionState.mode) {
                         return;
                     }
 
+                    drawFaceBoundingBoxes(requestMode, captureResult);
+                    updateFaceDebugPanel(requestMode, 'capture', captureResult, null);
+
                     if (captureResult.status === 'no_face') {
-                        clearRecognizedUser(requestMode, 'Tidak ada wajah terdeteksi. Arahkan wajah ke kamera.', 'alert-secondary');
+                        faceRecognitionState.noFaceStreak[requestMode] = (faceRecognitionState.noFaceStreak[requestMode] || 0) + 1;
+
+                        var noFaceMessage = 'Tidak ada wajah terdeteksi. Arahkan wajah ke kamera.';
+
+                        if (faceRecognitionState.noFaceStreak[requestMode] >= 3) {
+                            noFaceMessage = 'Tidak ada wajah terdeteksi. Dekatkan wajah ke kamera, pastikan pencahayaan cukup, lalu cek Menu C agar nilai shift horizontal/vertikal tidak terlalu jauh.';
+                        }
+
+                        clearRecognizedUser(requestMode, noFaceMessage, 'alert-secondary');
 
                         return;
                     }
+
+                    faceRecognitionState.noFaceStreak[requestMode] = 0;
 
                     if (captureResult.status === 'multiple_faces') {
                         clearRecognizedUser(requestMode, 'Terdeteksi lebih dari satu wajah. Mohon hanya satu orang di frame.', 'alert-warning');
@@ -1109,10 +1385,20 @@
                     }
 
                     if (response.ok && data.recognized === true && data.user) {
+                        faceRecognitionState.noFaceStreak[requestMode] = 0;
+                        updateFaceDebugPanel(requestMode, 'server', captureResult, {
+                            status: 'recognized',
+                            confidenceScore: data.confidence_score,
+                        });
                         lockRecognizedUser(requestMode, data.user, data.confidence_score);
 
                         return;
                     }
+
+                    updateFaceDebugPanel(requestMode, 'server', captureResult, {
+                        status: data.status || 'not_recognized',
+                        confidenceScore: data.confidence_score,
+                    });
 
                     if (data.status === 'no_face') {
                         clearRecognizedUser(requestMode, data.message || 'Wajah tidak terdeteksi.', 'alert-secondary');
@@ -1141,6 +1427,7 @@
                     clearRecognizedUser(requestMode, data.message || 'Wajah tidak dikenali.', 'alert-danger');
                 } catch (error) {
                     if (requestMode === faceRecognitionState.mode) {
+                        setFaceDebugMessage(requestMode, 'Debug: gagal memproses frame atau request server.');
                         clearRecognizedUser(requestMode, 'Gagal memproses face recognition di browser atau server.', 'alert-danger');
                     }
                 } finally {
@@ -1156,6 +1443,7 @@
                 }
 
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    setFaceDebugMessage(mode, 'Debug: browser tidak mendukung getUserMedia.');
                     clearRecognizedUser(mode, 'Browser tidak mendukung akses kamera.', 'alert-danger');
 
                     return;
@@ -1164,28 +1452,42 @@
                 stopFaceCamera();
 
                 try {
+                    setFaceDebugMessage(mode, 'Debug: memuat model dan menyiapkan kamera...');
+
                     if (window.InventoryFaceRecognition) {
                         await window.InventoryFaceRecognition.loadFaceApiModels();
                     }
 
+                    var frameRatio = getFaceCameraFrameRatio();
+                    var cameraBaseResolution = Math.max(640, FACE_CAPTURE_SIZE);
+
                     faceRecognitionState.stream = await navigator.mediaDevices.getUserMedia({
                         video: {
                             facingMode: 'user',
-                            aspectRatio: 1,
-                            width: { ideal: 640 },
-                            height: { ideal: 640 }
+                            aspectRatio: frameRatio,
+                            width: { ideal: cameraBaseResolution },
+                            height: { ideal: Math.max(1, Math.round(cameraBaseResolution / frameRatio)) }
                         },
                         audio: false
                     });
 
                     faceRecognitionState.mode = mode;
                     faceRecognitionState.locked[mode] = false;
+                    faceRecognitionState.noFaceStreak[mode] = 0;
                     elements.video.srcObject = faceRecognitionState.stream;
+                    clearFaceBoundingBoxes(mode);
+                    drawFaceBoundingBoxes(mode, {
+                        status: 'no_face',
+                        detectedBoxes: [],
+                        captureDimensions: getFaceCameraCaptureDimensions(),
+                    });
+                    setFaceDebugMessage(mode, 'Debug: kamera aktif, menunggu frame pertama...');
                     clearRecognizedUser(mode, 'Kamera aktif. Arahkan wajah ke kamera untuk dikenali otomatis.', 'alert-info');
 
                     faceRecognitionState.intervalId = window.setInterval(recognizeFace, 1800);
                 } catch (error) {
                     stopFaceCamera();
+                    setFaceDebugMessage(mode, 'Debug: gagal mengakses kamera.');
                     clearRecognizedUser(mode, error && error.message ? error.message : 'Izin kamera ditolak atau perangkat kamera tidak tersedia.', 'alert-danger');
                 }
             }
@@ -1198,12 +1500,16 @@
 
             if (faceModes.borrow.rescanButton) {
                 faceModes.borrow.rescanButton.addEventListener('click', function () {
+                    faceRecognitionState.noFaceStreak.borrow = 0;
+                    setFaceDebugMessage('borrow', 'Debug: scan ulang dimulai, menunggu frame...');
                     clearRecognizedUser('borrow', 'Silakan arahkan wajah untuk scan ulang.', 'alert-info');
                 });
             }
 
             if (faceModes.return.rescanButton) {
                 faceModes.return.rescanButton.addEventListener('click', function () {
+                    faceRecognitionState.noFaceStreak.return = 0;
+                    setFaceDebugMessage('return', 'Debug: scan ulang dimulai, menunggu frame...');
                     clearRecognizedUser('return', 'Silakan arahkan wajah untuk scan ulang.', 'alert-info');
                 });
             }
@@ -1586,6 +1892,10 @@
                         verticalShift: publicRegisterVerticalShift,
                         includeImage: true,
                         detectorInputSize: 416,
+                        scoreThreshold: 0.5,
+                        fallbackDetectorInputSize: 320,
+                        fallbackScoreThreshold: 0.35,
+                        enableFallbackDetection: true,
                         imageQuality: 0.85,
                     });
 

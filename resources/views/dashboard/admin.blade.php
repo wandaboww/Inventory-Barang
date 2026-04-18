@@ -495,21 +495,30 @@
         }
 
         #previewBorrowedTab {
-            background: #eaf8f1;
-            color: #157347;
-            border-color: #a3edbf;
+            color: #198754;
+            background: #ffffff;
+            border-color: #111111;
         }
 
         #previewBorrowedTab:hover,
-        #previewBorrowedTab:focus-visible {
-            background: #d1f0df;
-            border-color: #35be72;
+        #previewBorrowedTab:focus-visible,
+        #previewBorrowedTab:active {
+            border-color: #111111;
+            background: #ffffff;
+            outline: 0;
+            box-shadow: 0 0 0 0.18rem rgba(17, 17, 17, 0.14);
         }
 
         #previewBorrowedTab.active {
             color: #ffffff;
-            background: linear-gradient(135deg, #95e4be 0%, #2fbf7f 48%, #157347 100%);
-            border-color: #157347;
+            background: #1f9462;
+            border-color: #111111;
+            box-shadow: 0 10px 24px rgba(31, 148, 98, 0.25);
+        }
+
+        #previewBorrowedTab.active:hover,
+        #previewBorrowedTab.active:focus-visible {
+            border-color: #111111;
         }
 
         .admin-table-card {

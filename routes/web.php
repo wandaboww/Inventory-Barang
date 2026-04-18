@@ -31,10 +31,14 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
 
         Route::get('loans', [LoanController::class, 'index'])->name('loans.index');
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
+        Route::get('settings/logs/export-excel', [SettingController::class, 'exportActivityLogs'])->name('settings.logs.export');
+        Route::delete('settings/logs/cleanup', [SettingController::class, 'cleanupActivityLogs'])->name('settings.logs.cleanup');
         Route::put('settings/running-text', [SettingController::class, 'updateRunningText'])->name('settings.running-text.update');
         Route::put('settings/menu-a', [SettingController::class, 'updateMenuA'])->name('settings.menu-a.update');
         Route::put('settings/menu-b', [SettingController::class, 'updateMenuB'])->name('settings.menu-b.update');
         Route::put('settings/menu-c', [SettingController::class, 'updateMenuC'])->name('settings.menu-c.update');
+        Route::put('settings/admin/password', [SettingController::class, 'updateAdminPassword'])->name('settings.admin-password.update');
+        Route::delete('settings/user-data', [SettingController::class, 'bulkDeleteUsersByClass'])->name('settings.user-data.bulk-delete');
     });
 
     Route::post('loans/borrow', [LoanController::class, 'borrow'])->name('loans.borrow');

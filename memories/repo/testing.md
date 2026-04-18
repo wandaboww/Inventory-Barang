@@ -1,0 +1,1 @@
+- Setelah menjalankan `php artisan optimize`, jalankan `php artisan optimize:clear` sebelum `php artisan test` agar environment testing tidak memicu error 419 (CSRF).

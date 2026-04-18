@@ -114,12 +114,52 @@
         $selectedGrid = $a4GridVariants[$selectedGridKey];
         $selectedLabelKey = array_key_exists($printFormat, $labelVariants) ? $printFormat : 'label107';
         $selectedLabel = $labelVariants[$selectedLabelKey];
+        $allAssets = $allAssets ?? $assets;
+        $selectedAssetIds = array_values(array_unique(array_map(static fn ($id): int => (int) $id, $selectedAssetIds ?? [])));
+        $selectedAssetIdMap = array_fill_keys($selectedAssetIds, true);
+        $totalAssetsCount = $allAssets->count();
+        $selectedAssetsCount = $assets->count();
+        $selectionResetQuery = ['format' => $printFormat];
+        $conditionLabelMap = [
+            'good' => 'Baik',
+            'minor_damage' => 'Rusak Ringan',
+            'major_damage' => 'Rusak Berat',
+            '-' => 'Tidak Diisi',
+        ];
+        $masterAssetOptions = is_array($masterAssetOptions ?? null) ? $masterAssetOptions : [];
+        $selectorCategoryOptions = collect($masterAssetOptions['categories'] ?? [])
+            ->filter(static fn ($value): bool => is_string($value) && trim($value) !== '')
+            ->map(static fn ($value): string => trim((string) $value))
+            ->unique(static fn (string $value): string => strtolower($value))
+            ->values();
+        $selectorConditionOptions = collect($masterAssetOptions['conditions'] ?? [])
+            ->filter(static fn ($value): bool => is_string($value) && trim($value) !== '')
+            ->map(static fn ($value): string => trim((string) $value))
+            ->unique(static fn (string $value): string => strtolower($value))
+            ->values();
+        $selectorCategoryOptionMap = $selectorCategoryOptions
+            ->mapWithKeys(static fn (string $value): array => [strtolower(trim($value)) => true])
+            ->all();
+        $selectorConditionOptionMap = $selectorConditionOptions
+            ->mapWithKeys(static fn (string $value): array => [strtolower(trim($value)) => true])
+            ->all();
+        $selectorSearchKeyword = trim((string) request('selector_search', ''));
+        $requestedSelectorCategoryFilter = strtolower(trim((string) request('selector_category', '')));
+        $requestedSelectorConditionFilter = strtolower(trim((string) request('selector_condition', '')));
+        $selectorCategoryFilter = array_key_exists($requestedSelectorCategoryFilter, $selectorCategoryOptionMap)
+            ? $requestedSelectorCategoryFilter
+            : '';
+        $selectorConditionFilter = array_key_exists($requestedSelectorConditionFilter, $selectorConditionOptionMap)
+            ? $requestedSelectorConditionFilter
+            : '';
+
+        if ($printFormat === 'a4') {
+            $selectionResetQuery['grid'] = $selectedGridKey;
+        }
+
         $a4Pages = $assets->chunk($selectedGrid['per_page']);
         $labelChunks = $assets->chunk($selectedLabel['per_page']);
         $printDate = now()->locale('id')->translatedFormat('d F Y, H:i');
-
-        $selectedAsset = $assets->first();
-        $selectedBarcode = $selectedAsset ? (string) ($selectedAsset->barcode ?: $selectedAsset->serial_number) : '';
     @endphp
 
     <div class="barcode-page-shell" id="barcodePageShell">
@@ -188,62 +228,147 @@
                         @endif
 
                         <div>
-                            <label class="barcode-settings-label">Format download gambar</label>
-                            <div class="dropdown barcode-download-group w-100">
-                                <button class="btn btn-outline-success dropdown-toggle w-100 d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <span><i class="fa-solid fa-image me-2"></i>Pilih format</span>
-                                </button>
-                                <ul class="dropdown-menu w-100">
-                                    <li>
-                                        <button class="dropdown-item" type="button" data-image-format="png">PNG</button>
-                                    </li>
-                                    <li>
-                                        <button class="dropdown-item" type="button" data-image-format="jpeg">JPEG</button>
-                                    </li>
-                                </ul>
-                            </div>
+                            <label class="barcode-settings-label">Pilih Barcode yang Dicetak</label>
+                            <form method="GET" action="{{ route('admin.loans.index') }}" id="barcodeSelectionForm" class="d-flex flex-column gap-2">
+                                <input type="hidden" name="format" value="{{ $printFormat }}">
+                                <input type="hidden" name="selection_mode" value="custom">
+                                @if($printFormat === 'a4')
+                                    <input type="hidden" name="grid" value="{{ $selectedGridKey }}">
+                                @endif
+
+                                <div class="d-flex align-items-center gap-2">
+                                    <input
+                                        type="search"
+                                        id="barcodeSelectorSearchInput"
+                                        name="selector_search"
+                                        value="{{ $selectorSearchKeyword }}"
+                                        class="form-control form-control-sm"
+                                        placeholder="Cari serial, barcode, merek, model"
+                                        autocomplete="off"
+                                    >
+                                    <span class="badge text-bg-primary text-nowrap" id="barcodeSelectedCountBadge">
+                                        {{ number_format($selectedAssetsCount) }}
+                                    </span>
+                                </div>
+
+                                <div class="barcode-selector-filters">
+                                    <div>
+                                        <label class="form-label form-label-sm mb-1 small text-muted" for="barcodeCategoryFilterInput">Filter kategori</label>
+                                        <select id="barcodeCategoryFilterInput" name="selector_category" class="form-select form-select-sm">
+                                            <option value="">Semua kategori</option>
+                                            @foreach($selectorCategoryOptions as $categoryOption)
+                                                @php
+                                                    $categoryFilterValue = strtolower(trim((string) $categoryOption));
+                                                @endphp
+                                                <option value="{{ $categoryFilterValue }}" @selected($selectorCategoryFilter === $categoryFilterValue)>{{ $categoryOption }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="form-label form-label-sm mb-1 small text-muted" for="barcodeConditionFilterInput">Filter kondisi</label>
+                                        <select id="barcodeConditionFilterInput" name="selector_condition" class="form-select form-select-sm">
+                                            <option value="">Semua kondisi</option>
+                                            @foreach($selectorConditionOptions as $conditionOption)
+                                                @php
+                                                    $conditionFilterValue = strtolower(trim((string) $conditionOption));
+                                                    $conditionFilterLabel = (string) $conditionOption;
+                                                @endphp
+                                                <option value="{{ $conditionFilterValue }}" @selected($selectorConditionFilter === $conditionFilterValue)>{{ $conditionFilterLabel }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-check user-select-none">
+                                    <input class="form-check-input" type="checkbox" id="barcodeSelectAllToggle" @checked($totalAssetsCount > 0 && $selectedAssetsCount === $totalAssetsCount)>
+                                    <label class="form-check-label small fw-semibold" for="barcodeSelectAllToggle">
+                                        Pilih semua barcode
+                                    </label>
+                                </div>
+
+                                <div class="barcode-selector-list border rounded-3 p-2">
+                                    @forelse($allAssets as $selectorAsset)
+                                        @php
+                                            $selectorBarcode = (string) ($selectorAsset->barcode ?: $selectorAsset->serial_number);
+                                            $selectorCategory = ($value = trim((string) ($selectorAsset->category ?? ''))) !== '' ? $value : '-';
+                                            $selectorCategoryFilter = strtolower($selectorCategory);
+                                            $selectorCondition = ($value = strtolower(trim((string) ($selectorAsset->condition ?? '')))) !== '' ? $value : '-';
+                                            $selectorConditionLabel = $conditionLabelMap[$selectorCondition] ?? ucwords(str_replace('_', ' ', $selectorCondition));
+                                            $searchLabel = strtolower(trim($selectorBarcode . ' ' . $selectorAsset->serial_number . ' ' . $selectorAsset->brand . ' ' . $selectorAsset->model . ' ' . $selectorCategory . ' ' . $selectorConditionLabel));
+                                        @endphp
+                                        <label class="barcode-selector-item form-check mb-0" data-barcode-selector-row data-search-text="{{ $searchLabel }}" data-category="{{ $selectorCategoryFilter }}" data-condition="{{ $selectorCondition }}">
+                                            <input
+                                                class="form-check-input barcode-selector-checkbox"
+                                                type="checkbox"
+                                                name="selected_assets[]"
+                                                value="{{ $selectorAsset->id }}"
+                                                data-barcode-selector-item
+                                                @checked(isset($selectedAssetIdMap[(int) $selectorAsset->id]))
+                                            >
+                                            <span class="barcode-selector-label">
+                                                <span class="barcode-selector-code">{{ $selectorBarcode }}</span>
+                                                <span class="barcode-selector-meta">{{ $selectorAsset->brand }} {{ $selectorAsset->model }} • {{ $selectorCategory }} • {{ $selectorConditionLabel }}</span>
+                                            </span>
+                                        </label>
+                                    @empty
+                                        <div class="small text-muted py-2 px-1">Belum ada data aset untuk dipilih.</div>
+                                    @endforelse
+                                </div>
+
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary flex-fill">
+                                        <i class="fa-solid fa-check me-1"></i>Terapkan Pilihan
+                                    </button>
+                                    <a href="{{ route('admin.loans.index', $selectionResetQuery) }}" class="btn btn-sm btn-outline-secondary">
+                                        Reset
+                                    </a>
+                                </div>
+
+                                <div class="small text-muted">
+                                    Preview dan print hanya menampilkan barcode yang dipilih.
+                                </div>
+                            </form>
                         </div>
 
                         @if($printFormat !== 'a4')
-                            <div>
-                                <label class="barcode-settings-label">Border Konten Label</label>
-                                <div class="dropdown barcode-download-group w-100">
-                                    <button class="btn btn-outline-secondary dropdown-toggle w-100 d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="labelBorderToggleButton">
-                                        <span><i class="fa-solid fa-border-all me-2"></i><span id="labelBorderToggleText">Border ON</span></span>
-                                    </button>
-                                    <ul class="dropdown-menu w-100">
-                                        <li>
-                                            <button class="dropdown-item active" type="button" data-label-content-border="on">Border ON</button>
-                                        </li>
-                                        <li>
-                                            <button class="dropdown-item" type="button" data-label-content-border="off">Border OFF</button>
-                                        </li>
-                                    </ul>
+                            <div class="barcode-inline-settings-row">
+                                <div class="barcode-inline-settings-item">
+                                    <label class="barcode-settings-label">Border Konten Label</label>
+                                    <div class="dropdown barcode-download-group w-100">
+                                        <button class="btn btn-outline-secondary dropdown-toggle w-100 d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="labelBorderToggleButton">
+                                            <span><i class="fa-solid fa-border-all me-2"></i><span id="labelBorderToggleText">Border ON</span></span>
+                                        </button>
+                                        <ul class="dropdown-menu w-100">
+                                            <li>
+                                                <button class="dropdown-item active" type="button" data-label-content-border="on">Border ON</button>
+                                            </li>
+                                            <li>
+                                                <button class="dropdown-item" type="button" data-label-content-border="off">Border OFF</button>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div>
-                                <label class="barcode-settings-label">Border Grid Label</label>
-                                <div class="dropdown barcode-download-group w-100">
-                                    <button class="btn btn-outline-secondary dropdown-toggle w-100 d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="labelGridBorderToggleButton">
-                                        <span><i class="fa-solid fa-border-none me-2"></i><span id="labelGridBorderToggleText">Grid Border ON</span></span>
-                                    </button>
-                                    <ul class="dropdown-menu w-100">
-                                        <li>
-                                            <button class="dropdown-item active" type="button" data-label-grid-border="on">Grid Border ON</button>
-                                        </li>
-                                        <li>
-                                            <button class="dropdown-item" type="button" data-label-grid-border="off">Grid Border OFF</button>
-                                        </li>
-                                    </ul>
+                                <div class="barcode-inline-settings-item">
+                                    <label class="barcode-settings-label">Border Grid Label</label>
+                                    <div class="dropdown barcode-download-group w-100">
+                                        <button class="btn btn-outline-secondary dropdown-toggle w-100 d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="labelGridBorderToggleButton">
+                                            <span><i class="fa-solid fa-border-none me-2"></i><span id="labelGridBorderToggleText">Grid Border ON</span></span>
+                                        </button>
+                                        <ul class="dropdown-menu w-100">
+                                            <li>
+                                                <button class="dropdown-item active" type="button" data-label-grid-border="on">Grid Border ON</button>
+                                            </li>
+                                            <li>
+                                                <button class="dropdown-item" type="button" data-label-grid-border="off">Grid Border OFF</button>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         @endif
 
                         <div class="barcode-action-buttons">
-                            <button type="button" class="btn btn-outline-primary" id="downloadPdfButton">
-                                <i class="fa-solid fa-file-pdf me-2"></i>Download PDF
-                            </button>
                             <button type="button" class="btn btn-primary" id="printBarcodeButton">
                                 <i class="fa-solid fa-print me-2"></i>Print Epson L4150
                             </button>
@@ -251,9 +376,9 @@
 
                         <div class="small text-muted">
                             @if($printFormat === 'a4')
-                                {{ $selectedGrid['label'] }} menampilkan {{ $selectedGrid['per_page'] }} kartu per halaman dan mencetak semua aset yang tersedia.
+                                {{ $selectedGrid['label'] }} menampilkan {{ $selectedGrid['per_page'] }} kartu per halaman dari total {{ number_format($selectedAssetsCount) }} aset terpilih.
                             @else
-                                {{ $selectedLabel['label'] }} ({{ $selectedLabel['dimensions'] }}) — {{ $selectedLabel['grid_columns'] }} kolom x {{ $selectedLabel['grid_rows'] }} baris, {{ $selectedLabel['per_page'] }} label per lembar {{ $selectedLabel['paper_label'] }}.
+                                {{ $selectedLabel['label'] }} ({{ $selectedLabel['dimensions'] }}) — {{ $selectedLabel['grid_columns'] }} kolom x {{ $selectedLabel['grid_rows'] }} baris, {{ $selectedLabel['per_page'] }} label per lembar {{ $selectedLabel['paper_label'] }}, untuk {{ number_format($selectedAssetsCount) }} aset terpilih.
                             @endif
                         </div>
 
@@ -294,68 +419,78 @@
                         @endif
 
                         @if($printFormat !== 'a4')
-                        {{-- Kalibrasi Posisi Cetak --}}
-                        <div id="labelCalibrationPanel">
-                            <div class="barcode-settings-label mt-1">
-                                <i class="fa-solid fa-sliders me-1"></i> Kalibrasi Posisi Cetak
-                            </div>
-
-                            {{-- Offset X --}}
-                            <div class="mb-2">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <span class="small text-muted">Geser Horizontal</span>
-                                    <span class="badge text-bg-secondary" id="calXDisplay">0 mm</span>
-                                </div>
-                                <input type="range" class="form-range" id="calOffsetX"
-                                       min="-15" max="15" step="0.5" value="0">
-                                <div class="d-flex gap-1 mt-1">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm flex-fill cal-step-btn"
-                                            data-axis="x" data-dir="-1">
-                                        <i class="fa-solid fa-arrow-left"></i> Kiri
+                        <div class="accordion accordion-flush" id="labelCalibrationAccordion">
+                            <div class="accordion-item border rounded">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed py-2 px-3 small fw-semibold" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#labelCalibrationBody"
+                                            aria-expanded="false" aria-controls="labelCalibrationBody">
+                                        <i class="fa-solid fa-sliders me-2 text-primary"></i>
+                                        Kalibrasi Posisi Cetak
                                     </button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm flex-fill cal-step-btn"
-                                            data-axis="x" data-dir="1">
-                                        Kanan <i class="fa-solid fa-arrow-right"></i>
-                                    </button>
-                                </div>
-                            </div>
+                                </h2>
+                                <div id="labelCalibrationBody" class="accordion-collapse collapse">
+                                    <div class="accordion-body py-2 px-3" id="labelCalibrationPanel">
+                                        <div class="cal-hint mb-2">
+                                            Penyesuaian berlaku di Preview <strong>dan</strong> saat Cetak/PDF.
+                                            Gunakan langkah kecil 0.5 mm untuk akurasi tinggi.
+                                        </div>
 
-                            {{-- Offset Y --}}
-                            <div class="mb-2">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <span class="small text-muted">Geser Vertikal</span>
-                                    <span class="badge text-bg-secondary" id="calYDisplay">0 mm</span>
-                                </div>
-                                <input type="range" class="form-range" id="calOffsetY"
-                                       min="-15" max="15" step="0.5" value="0">
-                                <div class="d-flex gap-1 mt-1">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm flex-fill cal-step-btn"
-                                            data-axis="y" data-dir="-1">
-                                        <i class="fa-solid fa-arrow-up"></i> Atas
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm flex-fill cal-step-btn"
-                                            data-axis="y" data-dir="1">
-                                        Bawah <i class="fa-solid fa-arrow-down"></i>
-                                    </button>
-                                </div>
-                            </div>
+                                        {{-- Offset X --}}
+                                        <div class="mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="small text-muted">Geser Horizontal</span>
+                                                <span class="badge text-bg-secondary" id="calXDisplay">0 mm</span>
+                                            </div>
+                                            <input type="range" class="form-range" id="calOffsetX"
+                                                   min="-15" max="15" step="0.5" value="0">
+                                            <div class="d-flex gap-1 mt-1">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm flex-fill cal-step-btn"
+                                                        data-axis="x" data-dir="-1">
+                                                    <i class="fa-solid fa-arrow-left"></i> Kiri
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm flex-fill cal-step-btn"
+                                                        data-axis="x" data-dir="1">
+                                                    Kanan <i class="fa-solid fa-arrow-right"></i>
+                                                </button>
+                                            </div>
+                                        </div>
 
-                            {{-- Skala --}}
-                            <div class="mb-2">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <span class="small text-muted">Skala Grid</span>
-                                    <span class="badge text-bg-secondary" id="calScaleDisplay">100%</span>
-                                </div>
-                                <input type="range" class="form-range" id="calScale"
-                                       min="90" max="110" step="0.5" value="100">
-                            </div>
+                                        {{-- Offset Y --}}
+                                        <div class="mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="small text-muted">Geser Vertikal</span>
+                                                <span class="badge text-bg-secondary" id="calYDisplay">0 mm</span>
+                                            </div>
+                                            <input type="range" class="form-range" id="calOffsetY"
+                                                   min="-15" max="15" step="0.5" value="0">
+                                            <div class="d-flex gap-1 mt-1">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm flex-fill cal-step-btn"
+                                                        data-axis="y" data-dir="-1">
+                                                    <i class="fa-solid fa-arrow-up"></i> Atas
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm flex-fill cal-step-btn"
+                                                        data-axis="y" data-dir="1">
+                                                    Bawah <i class="fa-solid fa-arrow-down"></i>
+                                                </button>
+                                            </div>
+                                        </div>
 
-                            <button type="button" class="btn btn-outline-danger btn-sm w-100" id="calResetBtn">
-                                <i class="fa-solid fa-rotate-left me-1"></i> Reset Posisi
-                            </button>
-                            <div class="cal-hint mt-2">
-                                Penyesuaian berlaku di Preview <strong>dan</strong> saat Cetak/PDF.
-                                Gunakan langkah kecil 0.5 mm untuk akurasi tinggi.
+                                        {{-- Skala --}}
+                                        <div class="mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="small text-muted">Skala Grid</span>
+                                                <span class="badge text-bg-secondary" id="calScaleDisplay">100%</span>
+                                            </div>
+                                            <input type="range" class="form-range" id="calScale"
+                                                   min="90" max="110" step="0.5" value="100">
+                                        </div>
+
+                                        <button type="button" class="btn btn-outline-danger btn-sm w-100" id="calResetBtn">
+                                            <i class="fa-solid fa-rotate-left me-1"></i> Reset Posisi
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         @endif
@@ -370,7 +505,7 @@
                             <span>Container Preview</span>
                             <div class="small text-muted fw-normal">Format {{ $printFormat === 'a4' ? $selectedGrid['label'] : $selectedLabel['label'] }}</div>
                         </div>
-                        <span class="badge text-bg-primary">{{ $assets->count() }} aset</span>
+                        <span class="badge text-bg-primary">{{ number_format($selectedAssetsCount) }} / {{ number_format($totalAssetsCount) }} aset</span>
                     </div>
                     <div class="card-body">
                         <div class="barcode-preview-stage">
@@ -479,6 +614,12 @@
                                         @endforeach
                                     </div>
                                 @endif
+                            @elseif($allAssets->isNotEmpty())
+                                <div class="barcode-empty-state w-100">
+                                    <div class="barcode-empty-icon"><i class="fa-solid fa-list-check"></i></div>
+                                    <h5 class="mb-2">Belum ada barcode dipilih untuk dicetak</h5>
+                                    <p class="text-muted mb-0">Pilih minimal satu barcode pada panel Setting Barcode agar preview langsung muncul di sini.</p>
+                                </div>
                             @else
                                 <div class="barcode-empty-state w-100">
                                     <div class="barcode-empty-icon"><i class="fa-solid fa-barcode"></i></div>
@@ -517,14 +658,80 @@
             min-width: 100%;
         }
 
+        .barcode-selector-list {
+            max-height: 270px;
+            overflow: auto;
+            background: #f8fbff;
+        }
+
+        .barcode-selector-filters {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
+
+        .barcode-selector-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+            padding: 0.45rem 0.5rem;
+            border-radius: 0.6rem;
+            cursor: pointer;
+        }
+
+        .barcode-selector-item:hover {
+            background: #ebf3ff;
+        }
+
+        .barcode-selector-item .form-check-input {
+            margin-top: 0.18rem;
+            margin-left: 0;
+        }
+
+        .barcode-selector-item.is-hidden {
+            display: none !important;
+        }
+
+        .barcode-selector-label {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .barcode-selector-code {
+            color: #0f172a;
+            font-size: 0.82rem;
+            font-weight: 700;
+            line-height: 1.25;
+            word-break: break-word;
+        }
+
+        .barcode-selector-meta {
+            color: #64748b;
+            font-size: 0.76rem;
+            line-height: 1.2;
+            word-break: break-word;
+        }
+
+        .barcode-inline-settings-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.6rem;
+            align-items: end;
+        }
+
+        .barcode-inline-settings-item {
+            min-width: 0;
+        }
+
         .barcode-action-buttons {
             display: flex;
             gap: 0.5rem;
         }
 
         .barcode-action-buttons > .btn {
-            flex: 1 1 50%;
-            width: 50%;
+            flex: 1 1 100%;
+            width: 100%;
         }
 
         #barcodePageShell.barcode-content-border-off .barcode-label-content {
@@ -773,11 +980,17 @@
             }
         }
 
+        @media (max-width: 575.98px) {
+            .barcode-selector-filters {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
+
         /* ── Calibration Panel ──────────────────────────────────── */
         #labelCalibrationPanel {
-            padding-top: .25rem;
-            border-top: 1px dashed #d0dcea;
-            margin-top: .25rem;
+            padding-top: 0;
+            border-top: none;
+            margin-top: 0;
         }
         .cal-hint {
             font-size: .68rem;
@@ -967,18 +1180,20 @@
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var selectedFormat = @json($printFormat);
-            var selectedBarcode = @json($selectedBarcode);
             var selectedGrid = @json($selectedGrid);
-            var selectedGridKey = @json($selectedGridKey);
             var selectedLabel = @json($selectedLabel);
-            var selectedLabelKey = @json($selectedLabelKey);
-            var downloadPdfButton = document.getElementById('downloadPdfButton');
+            var barcodeSelectionForm = document.getElementById('barcodeSelectionForm');
+            var barcodeSelectorSearchInput = document.getElementById('barcodeSelectorSearchInput');
+            var barcodeCategoryFilterInput = document.getElementById('barcodeCategoryFilterInput');
+            var barcodeConditionFilterInput = document.getElementById('barcodeConditionFilterInput');
+            var barcodeSelectorRows = Array.from(document.querySelectorAll('[data-barcode-selector-row]'));
+            var barcodeSelectorItems = Array.from(document.querySelectorAll('[data-barcode-selector-item]'));
+            var barcodeSelectAllToggle = document.getElementById('barcodeSelectAllToggle');
+            var barcodeSelectedCountBadge = document.getElementById('barcodeSelectedCountBadge');
             var printButton = document.getElementById('printBarcodeButton');
-            var imageButtons = document.querySelectorAll('[data-image-format]');
             var barcodePageShell = document.getElementById('barcodePageShell');
             var labelBorderToggleText = document.getElementById('labelBorderToggleText');
             var labelBorderOptions = document.querySelectorAll('[data-label-content-border]');
@@ -990,21 +1205,7 @@
             var barcodeSvgs = document.querySelectorAll('[data-barcode-svg]');
             var labelContentBorderMode = 'on';
             var labelGridBorderMode = 'on';
-
-            var safeFileName = function (value) {
-                var normalized = (value || '')
-                    .toString()
-                    .trim()
-                    .toLowerCase()
-                    .replace(/[^a-z0-9]+/g, '-')
-                    .replace(/^-+|-+$/g, '');
-
-                return normalized || 'barcode';
-            };
-
-            var filePrefix = selectedFormat === 'a4'
-                ? 'barcode-a4-grid-' + safeFileName(selectedGridKey)
-                : 'barcode-' + safeFileName(selectedBarcode) + '-' + safeFileName(selectedLabel.file_suffix || selectedLabelKey);
+            var barcodeSelectionSubmitTimer = null;
 
             var applyLabelContentBorderMode = function (mode) {
                 var normalizedMode = mode === 'off' ? 'off' : 'on';
@@ -1084,6 +1285,139 @@
                 return fallbackMode;
             };
 
+            var updateSelectedBarcodeCount = function () {
+                if (!barcodeSelectedCountBadge) {
+                    return;
+                }
+
+                var selectedCount = barcodeSelectorItems.reduce(function (count, checkbox) {
+                    return checkbox.checked ? count + 1 : count;
+                }, 0);
+
+                barcodeSelectedCountBadge.textContent = selectedCount.toLocaleString('id-ID');
+            };
+
+            var getVisibleBarcodeSelectorItems = function () {
+                return barcodeSelectorItems.filter(function (checkbox) {
+                    var row = checkbox.closest('[data-barcode-selector-row]');
+
+                    if (!row) {
+                        return true;
+                    }
+
+                    return !row.classList.contains('is-hidden');
+                });
+            };
+
+            var updateSelectAllState = function () {
+                if (!barcodeSelectAllToggle) {
+                    return;
+                }
+
+                var targetItems = getVisibleBarcodeSelectorItems();
+                var selectedCount = targetItems.reduce(function (count, checkbox) {
+                    return checkbox.checked ? count + 1 : count;
+                }, 0);
+
+                if (targetItems.length === 0) {
+                    barcodeSelectAllToggle.checked = false;
+                    barcodeSelectAllToggle.indeterminate = false;
+                    return;
+                }
+
+                barcodeSelectAllToggle.checked = selectedCount === targetItems.length;
+                barcodeSelectAllToggle.indeterminate = selectedCount > 0 && selectedCount < targetItems.length;
+            };
+
+            var submitBarcodeSelection = function () {
+                if (!barcodeSelectionForm) {
+                    return;
+                }
+
+                if (barcodeSelectionSubmitTimer) {
+                    window.clearTimeout(barcodeSelectionSubmitTimer);
+                }
+
+                barcodeSelectionSubmitTimer = window.setTimeout(function () {
+                    if (typeof barcodeSelectionForm.requestSubmit === 'function') {
+                        barcodeSelectionForm.requestSubmit();
+                        return;
+                    }
+
+                    barcodeSelectionForm.submit();
+                }, 220);
+            };
+
+            var syncBarcodeFilterQueryState = function () {
+                if (typeof window.history.replaceState !== 'function') {
+                    return;
+                }
+
+                var currentUrl = null;
+
+                try {
+                    currentUrl = new URL(window.location.href);
+                } catch (error) {
+                    return;
+                }
+
+                var searchValue = barcodeSelectorSearchInput
+                    ? barcodeSelectorSearchInput.value.toString().trim()
+                    : '';
+                var categoryValue = barcodeCategoryFilterInput
+                    ? barcodeCategoryFilterInput.value.toString().trim().toLowerCase()
+                    : '';
+                var conditionValue = barcodeConditionFilterInput
+                    ? barcodeConditionFilterInput.value.toString().trim().toLowerCase()
+                    : '';
+
+                if (searchValue !== '') {
+                    currentUrl.searchParams.set('selector_search', searchValue);
+                } else {
+                    currentUrl.searchParams.delete('selector_search');
+                }
+
+                if (categoryValue !== '') {
+                    currentUrl.searchParams.set('selector_category', categoryValue);
+                } else {
+                    currentUrl.searchParams.delete('selector_category');
+                }
+
+                if (conditionValue !== '') {
+                    currentUrl.searchParams.set('selector_condition', conditionValue);
+                } else {
+                    currentUrl.searchParams.delete('selector_condition');
+                }
+
+                window.history.replaceState({}, '', currentUrl.toString());
+            };
+
+            var filterBarcodeSelectorRows = function () {
+                var normalizedKeyword = barcodeSelectorSearchInput
+                    ? barcodeSelectorSearchInput.value.toString().trim().toLowerCase()
+                    : '';
+                var normalizedCategory = barcodeCategoryFilterInput
+                    ? barcodeCategoryFilterInput.value.toString().trim().toLowerCase()
+                    : '';
+                var normalizedCondition = barcodeConditionFilterInput
+                    ? barcodeConditionFilterInput.value.toString().trim().toLowerCase()
+                    : '';
+
+                barcodeSelectorRows.forEach(function (row) {
+                    var rowLabel = row.dataset.searchText || '';
+                    var rowCategory = (row.dataset.category || '').toString().trim().toLowerCase();
+                    var rowCondition = (row.dataset.condition || '').toString().trim().toLowerCase();
+                    var matchKeyword = normalizedKeyword === '' || rowLabel.indexOf(normalizedKeyword) !== -1;
+                    var matchCategory = normalizedCategory === '' || rowCategory === normalizedCategory;
+                    var matchCondition = normalizedCondition === '' || rowCondition === normalizedCondition;
+                    var isMatch = matchKeyword && matchCategory && matchCondition;
+
+                    row.classList.toggle('is-hidden', !isMatch);
+                });
+
+                updateSelectAllState();
+            };
+
             var renderBarcodes = function () {
                 if (typeof JsBarcode !== 'function') {
                     return;
@@ -1146,122 +1480,6 @@
                 return canvases;
             };
 
-            var downloadBlob = function (blob, fileName) {
-                var link = document.createElement('a');
-                var url = URL.createObjectURL(blob);
-
-                link.href = url;
-                link.download = fileName;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                URL.revokeObjectURL(url);
-            };
-
-            var combineCanvases = function (canvases) {
-                if (!canvases.length) {
-                    return null;
-                }
-
-                if (canvases.length === 1) {
-                    return canvases[0];
-                }
-
-                var totalWidth = 0;
-                var totalHeight = 0;
-
-                canvases.forEach(function (canvas) {
-                    totalWidth = Math.max(totalWidth, canvas.width);
-                    totalHeight += canvas.height;
-                });
-
-                var composite = document.createElement('canvas');
-                composite.width = totalWidth;
-                composite.height = totalHeight;
-
-                var context = composite.getContext('2d');
-                var offsetY = 0;
-
-                canvases.forEach(function (canvas) {
-                    context.drawImage(canvas, 0, offsetY);
-                    offsetY += canvas.height;
-                });
-
-                return composite;
-            };
-
-            var downloadImage = async function (mimeType) {
-                var canvases = await getPageCanvases();
-
-                if (!canvases.length) {
-                    return;
-                }
-
-                var composite = combineCanvases(canvases);
-                if (!composite) {
-                    return;
-                }
-
-                var extension = mimeType === 'image/jpeg' ? 'jpg' : 'png';
-                var quality = mimeType === 'image/jpeg' ? 0.95 : 1;
-                var fileName = filePrefix + '.' + extension;
-
-                if (typeof composite.toBlob === 'function') {
-                    composite.toBlob(function (blob) {
-                        if (!blob) {
-                            alert('Gagal membuat file gambar barcode.');
-                            return;
-                        }
-
-                        downloadBlob(blob, fileName);
-                    }, mimeType, quality);
-
-                    return;
-                }
-
-                var link = document.createElement('a');
-                link.href = composite.toDataURL(mimeType, quality);
-                link.download = fileName;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-            };
-
-            var downloadPdf = async function () {
-                var canvases = await getPageCanvases();
-
-                if (!canvases.length) {
-                    return;
-                }
-
-                var jspdfApi = window.jspdf || {};
-                var jsPDF = jspdfApi.jsPDF;
-
-                if (typeof jsPDF !== 'function') {
-                    alert('Library PDF belum termuat.');
-                    return;
-                }
-
-                var pdfFormat = selectedFormat === 'a4' ? 'a4' : [selectedLabel.paper_width || 107, selectedLabel.paper_height || 50];
-                var pdf = new jsPDF({
-                    orientation: 'portrait',
-                    unit: 'mm',
-                    format: pdfFormat,
-                    compress: true,
-                });
-
-                canvases.forEach(function (canvas, index) {
-                    if (index > 0) {
-                        pdf.addPage();
-                    }
-
-                    var pageWidth = pdf.internal.pageSize.getWidth();
-                    var pageHeight = pdf.internal.pageSize.getHeight();
-                    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, pageHeight);
-                });
-
-                pdf.save(filePrefix + '.pdf');
-            };
 
             var getLabelPrintPages = function () {
                 return barcodePages.map(function (pageElement) {
@@ -1419,20 +1637,53 @@
                 });
             });
 
-            renderBarcodes();
-
-            if (downloadPdfButton) {
-                downloadPdfButton.addEventListener('click', function () {
-                    downloadPdf();
+            if (barcodeSelectorSearchInput) {
+                barcodeSelectorSearchInput.addEventListener('input', function () {
+                    filterBarcodeSelectorRows();
+                    syncBarcodeFilterQueryState();
                 });
             }
 
-            imageButtons.forEach(function (button) {
-                button.addEventListener('click', function () {
-                    var imageFormat = button.dataset.imageFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
-                    downloadImage(imageFormat);
+            if (barcodeCategoryFilterInput) {
+                barcodeCategoryFilterInput.addEventListener('change', function () {
+                    filterBarcodeSelectorRows();
+                    syncBarcodeFilterQueryState();
+                });
+            }
+
+            if (barcodeConditionFilterInput) {
+                barcodeConditionFilterInput.addEventListener('change', function () {
+                    filterBarcodeSelectorRows();
+                    syncBarcodeFilterQueryState();
+                });
+            }
+
+            if (barcodeSelectAllToggle) {
+                barcodeSelectAllToggle.addEventListener('change', function () {
+                    getVisibleBarcodeSelectorItems().forEach(function (checkbox) {
+                        checkbox.checked = barcodeSelectAllToggle.checked;
+                    });
+
+                    updateSelectedBarcodeCount();
+                    updateSelectAllState();
+                    submitBarcodeSelection();
+                });
+            }
+
+            barcodeSelectorItems.forEach(function (checkbox) {
+                checkbox.addEventListener('change', function () {
+                    updateSelectedBarcodeCount();
+                    updateSelectAllState();
+                    submitBarcodeSelection();
                 });
             });
+
+            updateSelectedBarcodeCount();
+            updateSelectAllState();
+            filterBarcodeSelectorRows();
+            syncBarcodeFilterQueryState();
+
+            renderBarcodes();
 
             if (printButton) {
                 printButton.addEventListener('click', function () {

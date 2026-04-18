@@ -22,6 +22,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Emergency Master Password
+    |--------------------------------------------------------------------------
+    |
+    | Hash password darurat untuk login admin ketika password di database
+    | bermasalah. Gunakan hanya untuk skenario emergency dan batasi aksesnya.
+    |
+    */
+
+    'master_admin_password_hash' => env('MASTER_ADMIN_PASSWORD_HASH', ''),
+
+    /*
+    |--------------------------------------------------------------------------
     | Authentication Guards
     |--------------------------------------------------------------------------
     |

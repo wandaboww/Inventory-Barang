@@ -650,7 +650,7 @@
             border-radius: 50%;
             position: relative;
             padding: 14px;
-            background: conic-gradient(#10b981 calc(var(--user-summary-rate) * 1%), rgba(148, 163, 184, 0.18) 0);
+            background: conic-gradient(#0d6efd calc(var(--user-summary-rate) * 1%), rgba(148, 163, 184, 0.18) 0);
             box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
         }
 
@@ -659,7 +659,7 @@
             position: absolute;
             inset: 14px;
             border-radius: 50%;
-            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            background: #f5f7fb;
         }
 
         .user-summary-ring-inner {
@@ -673,7 +673,7 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            background: radial-gradient(circle at top, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.96));
+            background: #f5f7fb;
         }
 
         .user-summary-ring-value {

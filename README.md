@@ -166,3 +166,33 @@ Seeder membuat data awal berikut:
 Password admin default seed:
 
 - `admin12345`
+
+## Master Password Darurat (Produksi)
+
+Fitur login darurat admin hanya membaca hash dari env `MASTER_ADMIN_PASSWORD_HASH`.
+
+Langkah override di server produksi:
+
+1. Buat hash password atasan (jalankan di server):
+
+```bash
+php -r "echo password_hash('PASSWORD_ATASAN', PASSWORD_BCRYPT), PHP_EOL;"
+```
+
+2. Isi env produksi:
+
+```env
+MASTER_ADMIN_PASSWORD_HASH=<HASH_HASIL_LANGKAH_1>
+```
+
+3. Refresh cache konfigurasi Laravel:
+
+```bash
+php artisan config:clear
+php artisan config:cache
+```
+
+Catatan keamanan:
+
+- Jangan commit nilai hash produksi ke repository.
+- Batasi akses hanya untuk admin yang berwenang.

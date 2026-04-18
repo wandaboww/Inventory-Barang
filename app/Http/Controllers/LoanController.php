@@ -6,6 +6,7 @@ use App\Models\ActivityLog;
 use App\Models\Asset;
 use App\Models\Loan;
 use App\Models\User;
+use App\Services\AssetOptionService;
 use App\Services\LoanService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,20 +14,55 @@ use RuntimeException;
 
 class LoanController extends Controller
 {
-    public function __construct(private readonly LoanService $loanService)
+    public function __construct(
+        private readonly LoanService $loanService,
+        private readonly AssetOptionService $assetOptionService,
+    )
     {
     }
 
     public function index(Request $request)
     {
-        $assets = Asset::query()
+        $allAssets = Asset::query()
             ->orderBy('category')
             ->orderBy('brand')
             ->orderBy('model')
             ->get(['id', 'category', 'brand', 'model', 'serial_number', 'barcode', 'status', 'condition']);
 
+        $allAssetIds = $allAssets
+            ->pluck('id')
+            ->map(static fn ($id): int => (int) $id)
+            ->values();
+
+        $selectedAssetIds = collect($request->input('selected_assets', []))
+            ->map(static fn ($id): int => (int) $id)
+            ->filter(static fn (int $id): bool => $id > 0)
+            ->intersect($allAssetIds)
+            ->unique()
+            ->values();
+
+        $isCustomSelection = $request->string('selection_mode')->toString() === 'custom';
+
+        if ($isCustomSelection) {
+            $assets = $selectedAssetIds->isNotEmpty()
+                ? $allAssets->whereIn('id', $selectedAssetIds->all())->values()
+                : collect();
+        } else {
+            $assets = $allAssets;
+            $selectedAssetIds = $allAssetIds;
+        }
+
+        $masterAssetOptions = $this->assetOptionService->getOptions();
+
         return view('admin.barcode.index', [
             'assets' => $assets,
+            'allAssets' => $allAssets,
+            'selectedAssetIds' => $selectedAssetIds->all(),
+            'isCustomSelection' => $isCustomSelection,
+            'masterAssetOptions' => [
+                'categories' => $masterAssetOptions['categories'] ?? [],
+                'conditions' => $masterAssetOptions['conditions'] ?? [],
+            ],
         ]);
     }
 

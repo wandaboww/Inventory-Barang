@@ -2,7 +2,7 @@
 
 @section('content')
     @php
-        $allowedTabs = ['running-text', 'menu-a', 'menu-b', 'menu-c'];
+        $allowedTabs = ['running-text', 'menu-a', 'menu-b', 'menu-c', 'user-data', 'admin', 'log'];
         $activeTab = request()->string('tab')->toString();
         $activeTab = in_array($activeTab, $allowedTabs, true) ? $activeTab : 'running-text';
         $fontFamilyPreviewMap = [
@@ -24,6 +24,7 @@
             'face_camera_frame_mode' => old('face_camera_frame_mode', $settingValues['face_camera_frame_mode']),
             'face_camera_horizontal_shift' => (int) old('face_camera_horizontal_shift', $settingValues['face_camera_horizontal_shift']),
             'face_camera_vertical_shift' => (int) old('face_camera_vertical_shift', $settingValues['face_camera_vertical_shift']),
+            'face_camera_debug_enabled' => old('face_camera_debug_enabled', $settingValues['face_camera_debug_enabled'] ?? '1') === '1' ? '1' : '0',
         ];
         $cameraPreviewValues['face_camera_frame_ratio'] = $cameraPreviewValues['face_camera_frame_mode'] === 'wide' ? '4 / 3' : '1 / 1';
         $cameraPreviewSampleSvg = rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f172a"/><stop offset="100%" stop-color="#1d4ed8"/></linearGradient><linearGradient id="accent" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#93c5fd"/><stop offset="100%" stop-color="#60a5fa"/></linearGradient></defs><rect width="800" height="800" rx="72" fill="url(#bg)"/><circle cx="400" cy="250" r="110" fill="url(#accent)" opacity="0.95"/><rect x="210" y="385" width="380" height="260" rx="110" fill="#334155" opacity="0.95"/><rect x="140" y="682" width="520" height="54" rx="18" fill="#0b1220" opacity="0.8"/><rect x="110" y="120" width="180" height="42" rx="21" fill="#ffffff" opacity="0.16"/><rect x="510" y="120" width="180" height="42" rx="21" fill="#ffffff" opacity="0.16"/><text x="400" y="585" text-anchor="middle" font-family="Arial, sans-serif" font-size="42" font-weight="700" fill="#e2e8f0">Preview Kamera</text><text x="400" y="640" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#cbd5e1">Dynamic setting preview</text></svg>');
@@ -44,6 +45,21 @@
             $normalizedValues = array_values(array_map(static fn ($value) => trim((string) $value), $rawValues));
             $menuAOptionValues[$optionKey] = $normalizedValues !== [] ? $normalizedValues : [''];
         }
+
+        $logSearch = old('log_search', $activityLogFilters['search'] ?? '');
+        $logAction = old('log_action', $activityLogFilters['action'] ?? '');
+        $logTable = old('log_table', $activityLogFilters['table'] ?? '');
+        $logDateFrom = old('log_date_from', $activityLogFilters['date_from'] ?? '');
+        $logDateTo = old('log_date_to', $activityLogFilters['date_to'] ?? '');
+        $logExportQuery = [
+            'log_search' => $logSearch,
+            'log_action' => $logAction,
+            'log_table' => $logTable,
+            'log_date_from' => $logDateFrom,
+            'log_date_to' => $logDateTo,
+        ];
+        $latestActivityTimestamp = $activityLogStats['latest_timestamp'] ?? null;
+        $latestActivityLabel = $latestActivityTimestamp !== null ? (string) $latestActivityTimestamp : '-';
     @endphp
 
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -74,6 +90,21 @@
                 <li class="nav-item" role="presentation">
                     <button class="nav-link settings-tab-btn {{ $activeTab === 'menu-c' ? 'active' : '' }}" id="tab-menu-c-link" data-bs-toggle="tab" data-bs-target="#tab-menu-c" type="button" role="tab" aria-controls="tab-menu-c" aria-selected="{{ $activeTab === 'menu-c' ? 'true' : 'false' }}">
                         Kamera
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link settings-tab-btn {{ $activeTab === 'user-data' ? 'active' : '' }}" id="tab-user-data-link" data-bs-toggle="tab" data-bs-target="#tab-user-data" type="button" role="tab" aria-controls="tab-user-data" aria-selected="{{ $activeTab === 'user-data' ? 'true' : 'false' }}">
+                        Data Pengguna
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link settings-tab-btn {{ $activeTab === 'admin' ? 'active' : '' }}" id="tab-admin-link" data-bs-toggle="tab" data-bs-target="#tab-admin" type="button" role="tab" aria-controls="tab-admin" aria-selected="{{ $activeTab === 'admin' ? 'true' : 'false' }}">
+                        Admin
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link settings-tab-btn {{ $activeTab === 'log' ? 'active' : '' }}" id="tab-log-link" data-bs-toggle="tab" data-bs-target="#tab-log" type="button" role="tab" aria-controls="tab-log" aria-selected="{{ $activeTab === 'log' ? 'true' : 'false' }}">
+                        Log
                     </button>
                 </li>
             </ul>
@@ -388,6 +419,32 @@
                                             <option value="contain" @selected($cameraPreviewValues['face_camera_object_fit'] === 'contain')>Contain</option>
                                         </select>
                                     </div>
+
+                                    <div class="col-12">
+                                        <div class="border rounded-3 p-3 bg-white">
+                                            <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                                                <div>
+                                                    <div class="fw-semibold">Debug On-Screen Face Scan</div>
+                                                    <div class="small text-muted">Tampilkan panel debug skor deteksi per frame pada Scan Station Public.</div>
+                                                </div>
+                                                <div class="form-check form-switch m-0">
+                                                    <input type="hidden" name="face_camera_debug_enabled" value="0">
+                                                    <input
+                                                        class="form-check-input"
+                                                        type="checkbox"
+                                                        role="switch"
+                                                        id="faceCameraDebugEnabledInput"
+                                                        name="face_camera_debug_enabled"
+                                                        value="1"
+                                                        @checked($cameraPreviewValues['face_camera_debug_enabled'] === '1')
+                                                    >
+                                                    <label class="form-check-label fw-semibold ms-2" id="faceCameraDebugEnabledLabel" for="faceCameraDebugEnabledInput">
+                                                        {{ $cameraPreviewValues['face_camera_debug_enabled'] === '1' ? 'ON' : 'OFF' }}
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="form-text mt-2">Setting ini akan dipakai pada preview kamera halaman registrasi wajah dan dashboard public.</div>
@@ -400,6 +457,7 @@
                                     <i class="fa-solid fa-eye text-primary"></i>
                                     <div class="fw-semibold">Preview Kamera Dinamis</div>
                                     <span class="badge text-bg-primary" id="faceCameraPreviewModeBadge">{{ $cameraPreviewValues['face_camera_frame_mode'] === 'wide' ? 'Wide' : '1:1' }}</span>
+                                    <span class="badge {{ $cameraPreviewValues['face_camera_debug_enabled'] === '1' ? 'text-bg-dark' : 'text-bg-secondary' }}" id="faceCameraDebugPreviewBadge">{{ $cameraPreviewValues['face_camera_debug_enabled'] === '1' ? 'Debug ON' : 'Debug OFF' }}</span>
                                     <span class="badge text-bg-success ms-auto" id="faceCameraPreviewSizeBadge">{{ $cameraPreviewValues['face_camera_preview_size'] }}px</span>
                                 </div>
                                 <div class="small text-muted mb-2">Preview kamera akan aktif otomatis saat tab Kamera dibuka.</div>
@@ -441,6 +499,568 @@
                             </a>
                         </div>
                     </form>
+                </div>
+
+                <div class="tab-pane fade {{ $activeTab === 'user-data' ? 'show active' : '' }}" id="tab-user-data" role="tabpanel" aria-labelledby="tab-user-data-link" tabindex="0">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div class="d-flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                class="btn btn-danger btn-sm"
+                                data-bs-toggle="modal"
+                                data-bs-target="#bulkDeleteUserModal"
+                                @disabled($userBulkDeleteClassSummaries === [])
+                            >
+                                <i class="fa-solid fa-trash-can me-1"></i>Hapus Massal Data Pengguna
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-outline-info btn-sm"
+                                data-bs-toggle="modal"
+                                data-bs-target="#bulkDeleteUserInfoModal"
+                            >
+                                <i class="fa-solid fa-circle-info me-1"></i>Informasi Hapus Massal
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning border mb-3">
+                        Fitur ini untuk mempercepat penghapusan data pengguna berdasarkan kategori kelas. Demi keamanan, akun admin dan pengguna yang memiliki riwayat peminjaman akan otomatis dilewati.
+                    </div>
+
+                    <div class="border rounded-3 p-3 bg-light-subtle mt-4">
+                        <div class="fw-semibold mb-2">Ringkasan Dampak per Kelas</div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Kelas</th>
+                                        <th>Total Pengguna</th>
+                                        <th>Siap Dihapus</th>
+                                        <th>Admin Dilindungi</th>
+                                        <th>Punya Riwayat Pinjaman</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($userBulkDeleteClassSummaries as $classSummary)
+                                        <tr>
+                                            <td class="fw-semibold">{{ $classSummary['kelas'] }}</td>
+                                            <td>{{ number_format($classSummary['total_users']) }}</td>
+                                            <td><span class="badge text-bg-success">{{ number_format($classSummary['deletable_users']) }}</span></td>
+                                            <td><span class="badge text-bg-primary">{{ number_format($classSummary['admin_users']) }}</span></td>
+                                            <td><span class="badge text-bg-warning">{{ number_format($classSummary['users_with_loans']) }}</span></td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-3">Belum ada data pengguna untuk dihapus.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="modal fade" id="bulkDeleteUserModal" tabindex="-1" aria-labelledby="bulkDeleteUserModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+                            <div class="modal-content border-0 shadow">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="bulkDeleteUserModalLabel">Hapus Massal Data Pengguna</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+
+                                <form method="POST" action="{{ route('admin.settings.user-data.bulk-delete') }}" onsubmit="return confirm('Hapus massal data pengguna pada kelas yang dipilih? Tindakan ini tidak dapat dibatalkan.');">
+                                    @csrf
+                                    @method('DELETE')
+
+                                    <div class="modal-body">
+                                        <div class="alert alert-warning border mb-3">
+                                            Hanya pengguna non-admin tanpa riwayat peminjaman yang akan dihapus. Pastikan kategori kelas yang dipilih sudah benar.
+                                        </div>
+
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label for="bulkDeleteClassInput" class="form-label">Kategori Kelas <span class="text-danger">*</span></label>
+                                                <select
+                                                    id="bulkDeleteClassInput"
+                                                    name="bulk_delete_class"
+                                                    class="form-select @error('bulk_delete_class') is-invalid @enderror"
+                                                    @disabled($userBulkDeleteClassSummaries === [])
+                                                    required
+                                                >
+                                                    <option value="">Pilih kelas...</option>
+                                                    @foreach($userBulkDeleteClassSummaries as $classSummary)
+                                                        <option value="{{ $classSummary['kelas'] }}" @selected(old('bulk_delete_class') === $classSummary['kelas'])>
+                                                            {{ $classSummary['kelas'] }} - {{ number_format($classSummary['deletable_users']) }} siap dihapus
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                @error('bulk_delete_class')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+
+                                            <div class="col-12">
+                                                <div class="form-check user-select-none">
+                                                    <input class="form-check-input @error('bulk_delete_confirm') is-invalid @enderror" type="checkbox" id="bulkDeleteConfirmInput" name="bulk_delete_confirm" value="1" @checked(old('bulk_delete_confirm'))>
+                                                    <label class="form-check-label" for="bulkDeleteConfirmInput">
+                                                        Saya memahami tindakan ini bersifat permanen.
+                                                    </label>
+                                                    @error('bulk_delete_confirm')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                                        <button type="submit" class="btn btn-danger" @disabled($userBulkDeleteClassSummaries === [])>
+                                            <i class="fa-solid fa-trash-can me-1"></i>Hapus Massal Data Pengguna
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal fade" id="bulkDeleteUserInfoModal" tabindex="-1" aria-labelledby="bulkDeleteUserInfoModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                            <div class="modal-content border-0 shadow">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="bulkDeleteUserInfoModalLabel">Informasi Hapus Massal Data Pengguna</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p class="mb-3">Fitur ini dirancang untuk mempercepat pembersihan data pengguna berdasarkan kelas tanpa perlu menghapus satu per satu.</p>
+
+                                    <div class="fw-semibold mb-2">Cara menggunakan</div>
+                                    <ol class="mb-3 ps-3">
+                                        <li>Pilih kategori kelas yang ingin diproses.</li>
+                                        <li>Cek estimasi dampak pada tabel Ringkasan Dampak per Kelas.</li>
+                                        <li>Centang konfirmasi tindakan permanen.</li>
+                                        <li>Klik tombol Hapus Massal Data Pengguna.</li>
+                                    </ol>
+
+                                    <div class="fw-semibold mb-2">Aturan keamanan otomatis</div>
+                                    <ul class="mb-3 ps-3">
+                                        <li>Akun dengan role admin tidak akan dihapus.</li>
+                                        <li>Pengguna yang memiliki riwayat peminjaman tidak akan dihapus.</li>
+                                        <li>Face thumbnail pengguna yang terhapus akan ikut dibersihkan dari storage.</li>
+                                    </ul>
+
+                                    <div class="alert alert-danger mb-0">
+                                        <i class="fa-solid fa-triangle-exclamation me-2"></i>Tindakan hapus massal bersifat permanen dan tidak dapat dibatalkan.
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade {{ $activeTab === 'admin' ? 'show active' : '' }}" id="tab-admin" role="tabpanel" aria-labelledby="tab-admin-link" tabindex="0">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div>
+                            <div class="fw-semibold">Pengaturan Akun Admin</div>
+                            <div class="text-muted small">Ubah password akun admin yang sedang login.</div>
+                        </div>
+                    </div>
+
+                    <form method="POST" action="{{ route('admin.settings.admin-password.update') }}" class="row g-3">
+                        @csrf
+                        @method('PUT')
+
+                        <div class="col-lg-7">
+                            <div class="border rounded-3 p-3 bg-light-subtle h-100">
+                                <div class="mb-3">
+                                    <label for="adminCurrentPasswordInput" class="form-label">Password Saat Ini <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input
+                                            type="password"
+                                            id="adminCurrentPasswordInput"
+                                            name="current_password"
+                                            class="form-control @error('current_password') is-invalid @enderror"
+                                            autocomplete="current-password"
+                                            required
+                                        >
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-secondary js-password-toggle"
+                                            data-password-target="adminCurrentPasswordInput"
+                                            data-show-label="Lihat"
+                                            data-hide-label="Sembunyikan"
+                                            data-show-aria="Tampilkan password saat ini"
+                                            data-hide-aria="Sembunyikan password saat ini"
+                                            aria-label="Tampilkan password saat ini"
+                                            aria-pressed="false"
+                                        >
+                                            <i class="fa-solid fa-eye" data-password-toggle-icon></i>
+                                            <span class="ms-1 d-none d-sm-inline" data-password-toggle-label>Lihat</span>
+                                        </button>
+                                    </div>
+                                    @error('current_password')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="adminNewPasswordInput" class="form-label">Password Baru <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input
+                                            type="password"
+                                            id="adminNewPasswordInput"
+                                            name="new_password"
+                                            class="form-control @error('new_password') is-invalid @enderror"
+                                            autocomplete="new-password"
+                                            minlength="8"
+                                            required
+                                        >
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-secondary js-password-toggle"
+                                            data-password-target="adminNewPasswordInput"
+                                            data-show-label="Lihat"
+                                            data-hide-label="Sembunyikan"
+                                            data-show-aria="Tampilkan password baru"
+                                            data-hide-aria="Sembunyikan password baru"
+                                            aria-label="Tampilkan password baru"
+                                            aria-pressed="false"
+                                        >
+                                            <i class="fa-solid fa-eye" data-password-toggle-icon></i>
+                                            <span class="ms-1 d-none d-sm-inline" data-password-toggle-label>Lihat</span>
+                                        </button>
+                                    </div>
+                                    @error('new_password')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+
+                                <div class="mb-0">
+                                    <label for="adminNewPasswordConfirmationInput" class="form-label">Konfirmasi Password Baru <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input
+                                            type="password"
+                                            id="adminNewPasswordConfirmationInput"
+                                            name="new_password_confirmation"
+                                            class="form-control"
+                                            autocomplete="new-password"
+                                            minlength="8"
+                                            required
+                                        >
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-secondary js-password-toggle"
+                                            data-password-target="adminNewPasswordConfirmationInput"
+                                            data-show-label="Lihat"
+                                            data-hide-label="Sembunyikan"
+                                            data-show-aria="Tampilkan konfirmasi password baru"
+                                            data-hide-aria="Sembunyikan konfirmasi password baru"
+                                            aria-label="Tampilkan konfirmasi password baru"
+                                            aria-pressed="false"
+                                        >
+                                            <i class="fa-solid fa-eye" data-password-toggle-icon></i>
+                                            <span class="ms-1 d-none d-sm-inline" data-password-toggle-label>Lihat</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-5">
+                            <div class="border rounded-3 p-3 bg-white h-100">
+                                <div class="fw-semibold mb-2">Aturan Password</div>
+                                <ul class="mb-0 ps-3 small text-muted">
+                                    <li>Minimal 8 karakter.</li>
+                                    <li>Harus berbeda dari password saat ini.</li>
+                                    <li>Simpan password dengan aman dan jangan dibagikan.</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="col-12 d-flex flex-wrap gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fa-solid fa-key me-2"></i>Ubah Password Admin
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="tab-pane fade {{ $activeTab === 'log' ? 'show active' : '' }}" id="tab-log" role="tabpanel" aria-labelledby="tab-log-link" tabindex="0">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div>
+                            <div class="fw-semibold">Log Aktivitas</div>
+                            <div class="text-muted small">Pantau jejak aktivitas sistem untuk proses audit dan troubleshooting.</div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{{ route('admin.settings.logs.export', $logExportQuery) }}" class="btn btn-success btn-sm">
+                                <i class="fa-solid fa-file-excel me-1"></i>Export Excel
+                            </a>
+                            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cleanupLogModal">
+                                <i class="fa-solid fa-broom me-1"></i>Cleanup Log Lama
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="border rounded-3 p-3 bg-light-subtle h-100">
+                                <div class="text-muted small">Total Aktivitas</div>
+                                <div class="h4 mb-0 fw-bold">{{ number_format((int) ($activityLogStats['total'] ?? 0)) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="border rounded-3 p-3 bg-light-subtle h-100">
+                                <div class="text-muted small">Hari Ini</div>
+                                <div class="h4 mb-0 fw-bold">{{ number_format((int) ($activityLogStats['today'] ?? 0)) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="border rounded-3 p-3 bg-light-subtle h-100">
+                                <div class="text-muted small">7 Hari Terakhir</div>
+                                <div class="h4 mb-0 fw-bold">{{ number_format((int) ($activityLogStats['last_7_days'] ?? 0)) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="border rounded-3 p-3 bg-light-subtle h-100">
+                                <div class="text-muted small">Aktivitas Terakhir</div>
+                                <div class="small fw-semibold text-break">{{ $latestActivityLabel }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="GET" action="{{ route('admin.settings.index') }}" class="row g-2 align-items-end mb-3">
+                        <input type="hidden" name="tab" value="log">
+
+                        <div class="col-12 col-lg-3">
+                            <label for="logSearchInput" class="form-label">Cari Aktivitas</label>
+                            <input
+                                type="text"
+                                id="logSearchInput"
+                                name="log_search"
+                                value="{{ $logSearch }}"
+                                class="form-control"
+                                placeholder="Cari aksi, tabel, data, detail"
+                            >
+                        </div>
+
+                        <div class="col-6 col-lg-2">
+                            <label for="logActionInput" class="form-label">Aksi</label>
+                            <select id="logActionInput" name="log_action" class="form-select">
+                                <option value="">Semua aksi</option>
+                                @foreach($activityLogActionOptions as $actionOption)
+                                    <option value="{{ $actionOption }}" @selected($logAction === $actionOption)>{{ $actionOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-6 col-lg-2">
+                            <label for="logTableInput" class="form-label">Tabel</label>
+                            <select id="logTableInput" name="log_table" class="form-select">
+                                <option value="">Semua tabel</option>
+                                @foreach($activityLogTableOptions as $tableOption)
+                                    <option value="{{ $tableOption }}" @selected($logTable === $tableOption)>{{ $tableOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-6 col-lg-2">
+                            <label for="logDateFromInput" class="form-label">Dari Tanggal</label>
+                            <input type="date" id="logDateFromInput" name="log_date_from" value="{{ $logDateFrom }}" class="form-control">
+                        </div>
+
+                        <div class="col-6 col-lg-2">
+                            <label for="logDateToInput" class="form-label">Sampai Tanggal</label>
+                            <input type="date" id="logDateToInput" name="log_date_to" value="{{ $logDateTo }}" class="form-control">
+                        </div>
+
+                        <div class="col-12 col-lg-1 d-grid gap-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fa-solid fa-filter"></i>
+                            </button>
+                            <a href="{{ route('admin.settings.index', ['tab' => 'log']) }}" class="btn btn-outline-secondary w-100">
+                                <i class="fa-solid fa-rotate-left"></i>
+                            </a>
+                        </div>
+                    </form>
+
+                    <div class="table-responsive border rounded-3">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 160px;">Waktu</th>
+                                    <th style="width: 120px;">Aksi</th>
+                                    <th style="width: 130px;">Tabel</th>
+                                    <th>Data</th>
+                                    <th>Detail</th>
+                                    <th style="width: 220px;">User Agent</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($activityLogs as $activityLog)
+                                    @php
+                                        $action = strtoupper((string) $activityLog->action);
+                                        $actionBadgeClass = match ($action) {
+                                            'BORROW' => 'text-bg-primary',
+                                            'RETURN' => 'text-bg-success',
+                                            'UPDATE' => 'text-bg-warning',
+                                            'DELETE', 'BULK_DELETE' => 'text-bg-danger',
+                                            default => 'text-bg-secondary',
+                                        };
+                                    @endphp
+                                    <tr>
+                                        <td class="small text-nowrap">{{ $activityLog->timestamp?->format('Y-m-d H:i:s') ?? '-' }}</td>
+                                        <td><span class="badge {{ $actionBadgeClass }}">{{ $action }}</span></td>
+                                        <td><span class="badge text-bg-light">{{ $activityLog->table_name }}</span></td>
+                                        <td class="activity-log-data" title="{{ (string) $activityLog->data }}">{{ \Illuminate\Support\Str::limit((string) $activityLog->data, 140) }}</td>
+                                        <td class="activity-log-details" title="{{ (string) ($activityLog->details ?? '') }}">{{ \Illuminate\Support\Str::limit((string) ($activityLog->details ?? '-'), 180) }}</td>
+                                        <td class="activity-log-user-agent" title="{{ (string) ($activityLog->user_agent ?? '-') }}">{{ \Illuminate\Support\Str::limit((string) ($activityLog->user_agent ?? '-'), 80) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-4">Belum ada log aktivitas yang tersimpan.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if($activityLogs->hasPages())
+                        <div class="mt-3">{{ $activityLogs->links() }}</div>
+                    @endif
+
+                    <div class="modal fade" id="cleanupLogModal" tabindex="-1" aria-labelledby="cleanupLogModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+                            <div class="modal-content border-0 shadow">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="cleanupLogModalLabel">Cleanup Log Lama</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+
+                                <form method="POST" action="{{ route('admin.settings.logs.cleanup') }}" id="cleanupLogForm">
+                                    @csrf
+                                    @method('DELETE')
+                                    <input type="hidden" id="cleanupMasterPasswordInput" name="cleanup_master_password" value="">
+
+                                    <div class="modal-body">
+                                        <div class="alert alert-warning border mb-3">
+                                            Gunakan fitur ini untuk menghapus log aktivitas pada rentang tanggal tertentu. Anda wajib memasukkan password admin aktif untuk konfirmasi.
+                                        </div>
+
+                                        @error('cleanup_master_password')
+                                            <div class="alert alert-danger border py-2 mb-3">{{ $message }}</div>
+                                        @enderror
+
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label for="cleanupDateFromInput" class="form-label">Dari Tanggal</label>
+                                                <input
+                                                    type="date"
+                                                    id="cleanupDateFromInput"
+                                                    name="cleanup_date_from"
+                                                    value="{{ old('cleanup_date_from', '') }}"
+                                                    class="form-control @error('cleanup_date_from') is-invalid @enderror"
+                                                    required
+                                                >
+                                                @error('cleanup_date_from')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="cleanupDateToInput" class="form-label">Sampai Tanggal</label>
+                                                <input
+                                                    type="date"
+                                                    id="cleanupDateToInput"
+                                                    name="cleanup_date_to"
+                                                    value="{{ old('cleanup_date_to', '') }}"
+                                                    class="form-control @error('cleanup_date_to') is-invalid @enderror"
+                                                    required
+                                                >
+                                                @error('cleanup_date_to')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+
+                                            <div class="col-12">
+                                                <label for="cleanupPasswordInput" class="form-label">Password Admin</label>
+                                                <input
+                                                    type="password"
+                                                    id="cleanupPasswordInput"
+                                                    name="cleanup_password"
+                                                    class="form-control @error('cleanup_password') is-invalid @enderror"
+                                                    autocomplete="current-password"
+                                                    placeholder="Masukkan password admin"
+                                                    required
+                                                >
+                                                @error('cleanup_password')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+
+                                            <div class="col-12">
+                                                <div class="form-check user-select-none">
+                                                    <input class="form-check-input @error('cleanup_confirm') is-invalid @enderror" type="checkbox" id="cleanupConfirmInput" name="cleanup_confirm" value="1" @checked(old('cleanup_confirm'))>
+                                                    <label class="form-check-label" for="cleanupConfirmInput">
+                                                        Saya paham cleanup log bersifat permanen.
+                                                    </label>
+                                                    @error('cleanup_confirm')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="modal-footer">
+                                        <div class="w-100 text-muted small mb-2 text-start">
+                                            Setelah klik tombol Cleanup Log, sistem akan meminta verifikasi password master emergency.
+                                        </div>
+                                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                                        <button type="submit" class="btn btn-danger">
+                                            <i class="fa-solid fa-trash-can me-1"></i>Cleanup Log
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal fade" id="cleanupLogMasterModal" tabindex="-1" aria-labelledby="cleanupLogMasterModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content border-0 shadow">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="cleanupLogMasterModalLabel">Verifikasi Master Emergency</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="alert alert-warning border mb-3">
+                                        Langkah keamanan tambahan: masukkan password master emergency untuk melanjutkan cleanup log.
+                                    </div>
+
+                                    <div class="mb-0">
+                                        <label for="cleanupMasterPasswordPromptInput" class="form-label">Password Master Emergency</label>
+                                        <input
+                                            type="password"
+                                            id="cleanupMasterPasswordPromptInput"
+                                            class="form-control"
+                                            autocomplete="off"
+                                            placeholder="Masukkan password master emergency"
+                                        >
+                                        <div class="invalid-feedback d-none" id="cleanupMasterPasswordPromptFeedback">Password master emergency wajib diisi.</div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Kembali</button>
+                                    <button type="button" class="btn btn-danger" id="cleanupMasterConfirmButton">
+                                        <i class="fa-solid fa-shield-halved me-1"></i>Verifikasi & Cleanup
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -557,6 +1177,15 @@
             border: 1px solid rgba(255, 255, 255, 0.12);
             pointer-events: none;
         }
+
+        .activity-log-data,
+        .activity-log-details {
+            max-width: 320px;
+        }
+
+        .activity-log-user-agent {
+            max-width: 220px;
+        }
     </style>
 @endpush
 
@@ -564,6 +1193,167 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var textInput = document.getElementById('runningTextInput');
+            var shouldOpenBulkDeleteUserModal = @json($activeTab === 'user-data' && ($errors->has('bulk_delete_class') || $errors->has('bulk_delete_confirm')));
+            var bulkDeleteUserModalElement = document.getElementById('bulkDeleteUserModal');
+            var shouldOpenCleanupLogModal = @json($activeTab === 'log' && ($errors->has('cleanup_date_from') || $errors->has('cleanup_date_to') || $errors->has('cleanup_password') || $errors->has('cleanup_master_password') || $errors->has('cleanup_confirm')));
+            var cleanupLogModalElement = document.getElementById('cleanupLogModal');
+            var cleanupLogForm = document.getElementById('cleanupLogForm');
+            var cleanupMasterPasswordInput = document.getElementById('cleanupMasterPasswordInput');
+            var cleanupMasterModalElement = document.getElementById('cleanupLogMasterModal');
+            var cleanupMasterPasswordPromptInput = document.getElementById('cleanupMasterPasswordPromptInput');
+            var cleanupMasterPasswordPromptFeedback = document.getElementById('cleanupMasterPasswordPromptFeedback');
+            var cleanupMasterConfirmButton = document.getElementById('cleanupMasterConfirmButton');
+            var cleanupLogModal = null;
+            var cleanupMasterModal = null;
+            var cleanupMasterVerificationPassed = false;
+            var cleanupMasterFlowActive = false;
+            var cleanupOpenMasterAfterLogHidden = false;
+
+            if (shouldOpenBulkDeleteUserModal && bulkDeleteUserModalElement && typeof bootstrap !== 'undefined') {
+                var bulkDeleteUserModal = new bootstrap.Modal(bulkDeleteUserModalElement);
+                bulkDeleteUserModal.show();
+            }
+
+            if (cleanupLogModalElement && typeof bootstrap !== 'undefined') {
+                cleanupLogModal = new bootstrap.Modal(cleanupLogModalElement);
+            }
+
+            if (cleanupMasterModalElement && typeof bootstrap !== 'undefined') {
+                cleanupMasterModal = new bootstrap.Modal(cleanupMasterModalElement);
+            }
+
+            if (shouldOpenCleanupLogModal && cleanupLogModal) {
+                cleanupLogModal.show();
+            }
+
+            var setCleanupMasterPromptError = function (message) {
+                if (!cleanupMasterPasswordPromptInput || !cleanupMasterPasswordPromptFeedback) {
+                    return;
+                }
+
+                var normalizedMessage = (message || '').toString().trim();
+
+                if (normalizedMessage !== '') {
+                    cleanupMasterPasswordPromptFeedback.textContent = normalizedMessage;
+                    cleanupMasterPasswordPromptFeedback.classList.remove('d-none');
+                    cleanupMasterPasswordPromptInput.classList.add('is-invalid');
+
+                    return;
+                }
+
+                cleanupMasterPasswordPromptFeedback.classList.add('d-none');
+                cleanupMasterPasswordPromptInput.classList.remove('is-invalid');
+            };
+
+            var openCleanupMasterModal = function () {
+                if (!cleanupLogModal || !cleanupMasterModal || !cleanupMasterPasswordPromptInput) {
+                    return;
+                }
+
+                cleanupMasterFlowActive = true;
+                cleanupOpenMasterAfterLogHidden = true;
+                cleanupMasterPasswordPromptInput.value = '';
+                setCleanupMasterPromptError('');
+
+                if (cleanupMasterPasswordInput) {
+                    cleanupMasterPasswordInput.value = '';
+                }
+
+                cleanupLogModal.hide();
+            };
+
+            if (cleanupLogForm && cleanupMasterPasswordInput) {
+                cleanupLogForm.addEventListener('submit', function (event) {
+                    if (cleanupMasterVerificationPassed) {
+                        cleanupMasterVerificationPassed = false;
+                        return;
+                    }
+
+                    if (!cleanupLogModal || !cleanupMasterModal) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    openCleanupMasterModal();
+                });
+            }
+
+            if (cleanupLogModalElement && cleanupLogModal) {
+                cleanupLogModalElement.addEventListener('hidden.bs.modal', function () {
+                    if (cleanupOpenMasterAfterLogHidden && cleanupMasterModal) {
+                        cleanupMasterModal.show();
+                    }
+
+                    cleanupOpenMasterAfterLogHidden = false;
+                });
+
+                cleanupLogModalElement.addEventListener('shown.bs.modal', function () {
+                    cleanupMasterVerificationPassed = false;
+
+                    if (cleanupMasterPasswordInput) {
+                        cleanupMasterPasswordInput.value = '';
+                    }
+                });
+            }
+
+            if (cleanupMasterModalElement) {
+                cleanupMasterModalElement.addEventListener('hidden.bs.modal', function () {
+                    if (cleanupMasterFlowActive && cleanupLogModal) {
+                        cleanupMasterFlowActive = false;
+                        cleanupLogModal.show();
+
+                        return;
+                    }
+
+                    cleanupMasterFlowActive = false;
+                });
+            }
+
+            if (cleanupMasterConfirmButton && cleanupMasterPasswordPromptInput && cleanupLogForm && cleanupMasterPasswordInput) {
+                cleanupMasterConfirmButton.addEventListener('click', function () {
+                    var masterPassword = cleanupMasterPasswordPromptInput.value.trim();
+
+                    if (masterPassword === '') {
+                        setCleanupMasterPromptError('Password master emergency wajib diisi.');
+                        cleanupMasterPasswordPromptInput.focus();
+
+                        return;
+                    }
+
+                    setCleanupMasterPromptError('');
+                    cleanupMasterPasswordInput.value = masterPassword;
+                    cleanupMasterVerificationPassed = true;
+                    cleanupMasterFlowActive = false;
+
+                    if (cleanupMasterModal) {
+                        cleanupMasterModal.hide();
+                    }
+
+                    if (typeof cleanupLogForm.requestSubmit === 'function') {
+                        cleanupLogForm.requestSubmit();
+
+                        return;
+                    }
+
+                    cleanupLogForm.submit();
+                });
+
+                cleanupMasterPasswordPromptInput.addEventListener('input', function () {
+                    if (cleanupMasterPasswordPromptInput.value.trim() !== '') {
+                        setCleanupMasterPromptError('');
+                    }
+                });
+
+                cleanupMasterPasswordPromptInput.addEventListener('keydown', function (event) {
+                    if (event.key !== 'Enter') {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    cleanupMasterConfirmButton.click();
+                });
+            }
+
             var enabledInput = document.getElementById('runningTextEnabledInput');
             var bgInput = document.getElementById('runningTextBgInput');
             var colorInput = document.getElementById('runningTextColorInput');
@@ -669,12 +1459,15 @@
             var faceCameraBorderRadiusInput = document.getElementById('faceCameraBorderRadiusInput');
             var faceCameraBackgroundInput = document.getElementById('faceCameraBackgroundInput');
             var faceCameraObjectFitInput = document.getElementById('faceCameraObjectFitInput');
+            var faceCameraDebugEnabledInput = document.getElementById('faceCameraDebugEnabledInput');
+            var faceCameraDebugEnabledLabel = document.getElementById('faceCameraDebugEnabledLabel');
             var faceCameraPreviewShell = document.getElementById('faceCameraPreviewShell');
             var faceCameraPreviewMedia = document.getElementById('faceCameraPreviewMedia');
             var faceCameraPreviewStatusBadge = document.getElementById('faceCameraPreviewStatusBadge');
             var faceCameraPreviewSizeLabel = document.getElementById('faceCameraPreviewSizeLabel');
             var faceCameraPreviewSizeBadge = document.getElementById('faceCameraPreviewSizeBadge');
             var faceCameraPreviewModeBadge = document.getElementById('faceCameraPreviewModeBadge');
+            var faceCameraDebugPreviewBadge = document.getElementById('faceCameraDebugPreviewBadge');
             var faceCameraPreviewFallback = document.getElementById('faceCameraPreviewFallback');
             var faceCameraCaptureSizeLabel = document.getElementById('faceCameraCaptureSizeLabel');
             var faceCameraCaptureSizePreviewLabel = document.getElementById('faceCameraCaptureSizePreviewLabel');
@@ -811,6 +1604,7 @@
                 var borderRadius = faceCameraBorderRadiusInput ? faceCameraBorderRadiusInput.value : '16';
                 var background = faceCameraBackgroundInput ? faceCameraBackgroundInput.value : '#111111';
                 var objectFit = faceCameraObjectFitInput ? faceCameraObjectFitInput.value : 'cover';
+                var debugEnabled = faceCameraDebugEnabledInput ? faceCameraDebugEnabledInput.checked : true;
 
                 if (!Number.isFinite(verticalShift)) {
                     verticalShift = 0;
@@ -862,6 +1656,15 @@
                     faceCameraFramePreviewLabel.textContent = (frameMode === 'wide' ? 'Wide 4:3' : '1:1') + ' / X ' + horizontalShift + '% / Y ' + verticalShift + '%';
                 }
 
+                if (faceCameraDebugEnabledLabel) {
+                    faceCameraDebugEnabledLabel.textContent = debugEnabled ? 'ON' : 'OFF';
+                }
+
+                if (faceCameraDebugPreviewBadge) {
+                    faceCameraDebugPreviewBadge.textContent = debugEnabled ? 'Debug ON' : 'Debug OFF';
+                    faceCameraDebugPreviewBadge.className = 'badge ' + (debugEnabled ? 'text-bg-dark' : 'text-bg-secondary');
+                }
+
                 if (faceCameraPreviewStream && faceCameraPreviewMedia && faceCameraPreviewMedia.srcObject !== faceCameraPreviewStream) {
                     faceCameraPreviewMedia.srcObject = faceCameraPreviewStream;
                 }
@@ -879,6 +1682,11 @@
                 faceCameraBorderRadiusInput.addEventListener('input', syncFaceCameraPreview);
                 faceCameraBackgroundInput.addEventListener('input', syncFaceCameraPreview);
                 faceCameraObjectFitInput.addEventListener('change', syncFaceCameraPreview);
+
+                if (faceCameraDebugEnabledInput) {
+                    faceCameraDebugEnabledInput.addEventListener('change', syncFaceCameraPreview);
+                }
+
                 syncFaceCameraPreview();
             }
 
@@ -1002,6 +1810,52 @@
 
                 rowElement.remove();
                 ensureMenuAListHasRow(listElement);
+            });
+
+            document.querySelectorAll('.js-password-toggle').forEach(function (toggleButton) {
+                var targetId = toggleButton.getAttribute('data-password-target') || '';
+                var targetInput = targetId !== '' ? document.getElementById(targetId) : null;
+
+                if (!targetInput) {
+                    return;
+                }
+
+                var toggleIcon = toggleButton.querySelector('[data-password-toggle-icon]');
+                var toggleLabel = toggleButton.querySelector('[data-password-toggle-label]');
+                var showLabel = toggleButton.getAttribute('data-show-label') || 'Lihat';
+                var hideLabel = toggleButton.getAttribute('data-hide-label') || 'Sembunyikan';
+                var showAria = toggleButton.getAttribute('data-show-aria') || 'Tampilkan password';
+                var hideAria = toggleButton.getAttribute('data-hide-aria') || 'Sembunyikan password';
+
+                var syncPasswordToggleState = function () {
+                    var isMasked = targetInput.type !== 'text';
+
+                    toggleButton.setAttribute('aria-pressed', isMasked ? 'false' : 'true');
+                    toggleButton.setAttribute('aria-label', isMasked ? showAria : hideAria);
+
+                    if (toggleLabel) {
+                        toggleLabel.textContent = isMasked ? showLabel : hideLabel;
+                    }
+
+                    if (toggleIcon) {
+                        toggleIcon.classList.toggle('fa-eye', isMasked);
+                        toggleIcon.classList.toggle('fa-eye-slash', !isMasked);
+                    }
+                };
+
+                toggleButton.addEventListener('click', function () {
+                    targetInput.type = targetInput.type === 'password' ? 'text' : 'password';
+                    syncPasswordToggleState();
+                });
+
+                targetInput.addEventListener('blur', function () {
+                    if (targetInput.type === 'text') {
+                        targetInput.type = 'password';
+                        syncPasswordToggleState();
+                    }
+                });
+
+                syncPasswordToggleState();
             });
         });
     </script>
