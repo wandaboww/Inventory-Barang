@@ -29,13 +29,13 @@
     <div class="row g-3 mb-3">
         <div class="col-xl-4 col-lg-4 col-md-6">
             <div class="card asset-stat-card h-100">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="card-body d-flex flex-column justify-content-between">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
                         <div class="asset-stat-label">Total Barang</div>
                         <span class="asset-stat-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
                     </div>
                     <div class="asset-stat-value">{{ number_format($totalAssets) }}</div>
-                    <div class="asset-stat-hint mt-2">Jumlah seluruh aset yang sudah terdaftar.</div>
+                    <div class="asset-stat-hint">Jumlah seluruh aset yang sudah terdaftar.</div>
                 </div>
             </div>
         </div>
@@ -570,6 +570,11 @@
         }
 
         .asset-stat-card,
+        .asset-list-card {
+            height: 140px;
+        }
+
+        .asset-stat-card,
         .asset-list-card,
         .asset-table-card {
             border-radius: 0.9rem;
@@ -584,64 +589,97 @@
         .asset-stat-card {
             border: 0;
             color: #ffffff;
-            min-height: 176px;
+            min-height: 140px;
             background: linear-gradient(315deg, #8fb8ff 0%, #3f7bf0 48%, #173f99 100%);
             box-shadow: 0 10px 26px rgba(15, 23, 42, 0.15);
         }
 
         .asset-stat-card .card-body {
-            padding: 1.1rem 1.1rem 1.2rem;
+            padding: 0.75rem 1rem;
         }
 
         .asset-stat-label {
-            font-size: 0.79rem;
+            font-size: 0.74rem;
             font-weight: 800;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.06em;
             text-transform: uppercase;
             opacity: 0.94;
         }
 
         .asset-stat-value {
-            font-size: clamp(2rem, 1.3vw + 1.35rem, 2.6rem);
+            font-size: clamp(1.6rem, 1.1vw + 1.2rem, 2rem);
             line-height: 1;
             font-weight: 800;
             letter-spacing: 0.02em;
         }
 
         .asset-stat-hint {
-            font-size: 0.86rem;
+            font-size: 0.75rem;
             font-weight: 500;
-            line-height: 1.35;
+            line-height: 1.25;
             opacity: 0.9;
         }
 
         .asset-stat-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 0.8rem;
+            width: 34px;
+            height: 34px;
+            border-radius: 0.7rem;
             background: rgba(255, 255, 255, 0.22);
             border: 1px solid rgba(255, 255, 255, 0.38);
             color: #ffffff;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 1rem;
+            font-size: 0.9rem;
             backdrop-filter: blur(1px);
         }
 
+        .asset-list-card {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
         .asset-list-scroll {
-            max-height: none;
-            overflow: visible;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f8fafc;
+        }
+
+        .asset-list-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .asset-list-scroll::-webkit-scrollbar-track {
+            background: #f8fafc;
+            border-radius: 4px;
+        }
+
+        .asset-list-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .asset-list-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
 
         .asset-list-item {
-            padding: 0.42rem 0;
+            padding: 0.26rem 0;
             border-bottom: 1px solid #edf2f8;
-            font-size: 0.94rem;
+            font-size: 0.83rem;
         }
 
         .asset-list-item:last-child {
             border-bottom: 0;
+        }
+
+        .asset-list-item .badge {
+            font-size: 0.72rem;
+            padding: 0.25em 0.55em;
         }
 
         .asset-filter-form .form-control,
@@ -713,6 +751,9 @@
 
         .asset-summary-header {
             border-bottom: 1px solid #cfddf3;
+            padding: 0.45rem 0.85rem;
+            font-size: 0.82rem;
+            flex-shrink: 0;
         }
 
         .asset-summary-header-category {
